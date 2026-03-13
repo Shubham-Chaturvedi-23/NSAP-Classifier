@@ -1,0 +1,25 @@
+{
+  "name": "nsap-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "React frontend for NSAP Scheme Classification System",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.23.1",
+    "axios": "^1.7.2",
+    "i18next": "^23.11.5",
+    "react-i18next": "^14.1.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.0",
+    "tailwindcss": "^3.4.3",
+    "vite": "^5.2.11"
+  },
+  "note": "Run 'npm install' inside this folder before starting frontend"
+}

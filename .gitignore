@@ -1,0 +1,60 @@
+# ── Python ─────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# ── Environment ────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── ML Model Artifacts ─────────────────────────────────────────
+# Do NOT commit large model files to git
+# Place these manually after cloning:
+#   models/nsap_catboost_model.cbm
+#   models/nsap_label_encoder.pkl
+#   models/nsap_feature_columns.pkl
+models/*.cbm
+models/*.pkl
+models/*.bin
+models/*.pt
+
+# ── Dataset ────────────────────────────────────────────────────
+# Large CSV files — do not commit
+*.csv
+!sample_data/sample_5_records.csv   # only this small sample is committed
+
+# ── IDE ────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Node / Frontend ────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# ── Logs ───────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Uploads (temp files from OCR) ──────────────────────────────
+uploads/
+temp/

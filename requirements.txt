@@ -1,0 +1,28 @@
+# NSAP Scheme Classification — Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# ── API Framework ──────────────────────────────────────────────
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9      # required for file uploads
+python-dotenv==1.0.1
+
+# ── Database ───────────────────────────────────────────────────
+sqlalchemy==2.0.30
+pymysql==1.1.0
+cryptography==42.0.7         # required by pymysql for auth
+
+# ── ML Model ───────────────────────────────────────────────────
+catboost==1.2.5
+scikit-learn==1.4.2
+pandas==2.2.2
+numpy==1.26.4
+
+# ── OCR ────────────────────────────────────────────────────────
+pytesseract==0.3.10
+opencv-python==4.9.0.80
+Pillow==10.3.0
+pymupdf==1.24.3              # PDF support (fitz)
+
+# ── Utilities ──────────────────────────────────────────────────
+pydantic==2.7.1
