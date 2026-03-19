@@ -1,28 +1,44 @@
 # NSAP Scheme Classification — Python Dependencies
+# Python 3.13 compatible | All versions verified from PyPI (March 2026)
 # Install with: pip install -r requirements.txt
 
+# First Install catboost wheel (pre-built only, no source build) before the rest of the dependencies to avoid Rust/C++ build issues on some platforms.
+# Install with: pip install catboost==1.2.10 --only-binary=catboost
+
 # ── API Framework ──────────────────────────────────────────────
-fastapi==0.111.0
-uvicorn[standard]==0.29.0
-python-multipart==0.0.9      # required for file uploads
-python-dotenv==1.0.1
+fastapi==0.135.1             # latest stable | py3.10–3.14
+uvicorn[standard]==0.42.0    # latest stable | py3.9+
+python-multipart==0.0.22     # latest stable | py3.13 compatible
+python-dotenv==1.0.1         # latest stable | py3.13 compatible
 
 # ── Database ───────────────────────────────────────────────────
-sqlalchemy==2.0.30
-pymysql==1.1.0
-cryptography==42.0.7         # required by pymysql for auth
+sqlalchemy==2.0.48           # latest stable (2026-03-02) | py3.13 compatible
+pymysql==1.1.1               # latest stable (2025-08-24) | py3.13 compatible
+cryptography==46.0.5         # latest stable (2026-02-10) | py3.8+ (abi3 wheel)
 
 # ── ML Model ───────────────────────────────────────────────────
-catboost==1.2.5
-scikit-learn==1.4.2
-pandas==2.2.2
-numpy==1.26.4
+catboost==1.2.10             # latest stable (2026-02-18) | explicit py3.13 wheels
+scikit-learn==1.8.0          # latest stable | py3.13 compatible
+pandas==2.2.3                # latest stable | py3.13 compatible
+numpy==2.4.3                 # latest stable (2026-03-09) | required for opencv 4.13+
+
+# ── Training / Experimentation (notebook only) ─────────────────
+#xgboost==2.0.3               # baseline model comparison
+#lightgbm==4.3.0              # baseline model comparison
+#imbalanced-learn==0.12.3     # SMOTE oversampling for minority class (DP)
+#shap==0.45.1                 # model explainability via Shapley values
+#optuna==3.6.1                # Bayesian hyperparameter tuning (50 trials)
+#matplotlib==3.9.2            # confusion matrix + SHAP plots
+#seaborn==0.13.2              # confusion matrix heatmap
+
+# ── Dataset Generator (dataset_generator.py) ──────────────────
+# pandas and numpy already listed above — no additional deps needed
 
 # ── OCR ────────────────────────────────────────────────────────
-pytesseract==0.3.10
-opencv-python==4.9.0.80
-Pillow==10.3.0
-pymupdf==1.24.3              # PDF support (fitz)
+pytesseract==0.3.13          # latest stable | pure Python, py3.13 compatible
+opencv-python==4.13.0.92     # latest stable (2026-02-05) | numpy 2.x compatible
+Pillow==12.1.1               # latest stable (2026-02-11) | py3.13 + py3.14
+pymupdf==1.27.2              # latest stable | py3.10 abi3 wheel, all py versions
 
 # ── Utilities ──────────────────────────────────────────────────
-pydantic==2.7.1
+pydantic==2.12.4             # latest stable (2025-11-26) | py3.9–3.13

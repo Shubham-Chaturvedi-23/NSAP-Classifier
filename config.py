@@ -3,6 +3,10 @@ config.py
 =========
 Central configuration for NSAP Classification API.
 All constants and settings live here.
+
+Keep this file in sync with NSAP_train.ipynb Section 3 (Configuration).
+Any change to features, thresholds, or BPL_THRESHOLD in the notebook
+must be reflected here or inference will silently produce wrong results.
 """
 
 import os
@@ -20,18 +24,61 @@ CATBOOST_MODEL_PATH  = MODELS_DIR / "nsap_catboost_model.cbm"
 LABEL_ENCODER_PATH   = MODELS_DIR / "nsap_label_encoder.pkl"
 FEATURE_COLUMNS_PATH = MODELS_DIR / "nsap_feature_columns.pkl"
 
-# ─── NSAP Rules ───────────────────────────────────────────────
-CONF_THRESHOLD = 0.70
+# ─── NSAP Eligibility Rules ───────────────────────────────────
+# BPL_THRESHOLD must match generate_nsap_dataset.py and the notebook exactly.
+# Changing this value will break income_to_bpl_ratio feature engineering.
+BPL_THRESHOLD  = 72_000          # Annual income ceiling for BPL eligibility (INR)
+
+# Minimum model confidence to auto-approve a prediction.
+# Predictions below this are flagged for manual officer review.
+# Value from notebook Section 3: CONF_THRESHOLD = 0.85
+# NOTE: config.py previously had 0.70 — corrected to match notebook.
+CONF_THRESHOLD = 0.85
+
+# When an applicant qualifies for multiple schemes, first match in this
+# list wins. Order is defined by NSAP guidelines (WP > DP > OAP).
 PRIORITY_ORDER = ["WP", "DP", "OAP", "NOT_ELIGIBLE"]
 
 # ─── Features ─────────────────────────────────────────────────
+# These lists must match the notebook (Section 3) exactly.
+# The model was trained on ALL_FEATURES = NUM_FEATURES + CAT_FEATURES
+# in that specific order — any deviation causes a feature mismatch at
+# inference time.
+
 CAT_FEATURES = [
     "gender", "marital_status", "bpl_card", "area_type",
     "social_category", "employment_status", "has_disability",
-    "disability_type", "aadhaar_linked", "bank_account", "state"
+    "disability_type", "aadhaar_linked", "bank_account", "state",
 ]
-NUM_FEATURES = ["age", "annual_income", "disability_percentage"]
+
+# NUM_FEATURES includes 3 engineered interaction features that must be
+# computed before passing data to the model (see feature_engineering()).
+NUM_FEATURES = [
+    "age",
+    "annual_income",
+    "disability_percentage",
+    "age_x_disability_pct",   # age × disability_percentage / 100
+    "income_to_bpl_ratio",    # annual_income / BPL_THRESHOLD
+    "is_widowed_female",      # 1 if gender==Female AND marital_status==Widowed
+]
+
+# Final feature order fed to CatBoost — do not reorder.
 ALL_FEATURES = NUM_FEATURES + CAT_FEATURES
+
+# ─── Feature Engineering ──────────────────────────────────────
+def engineer_features(df):
+    """
+    Compute the 3 interaction features the model was trained with.
+    Call this on any raw input DataFrame before running inference.
+    Mirrors the logic in notebook Section 4 and predict_applicant().
+    """
+    df = df.copy()
+    df["age_x_disability_pct"] = df["age"] * df["disability_percentage"] / 100
+    df["income_to_bpl_ratio"]  = df["annual_income"] / BPL_THRESHOLD
+    df["is_widowed_female"]    = (
+        (df["gender"] == "Female") & (df["marital_status"] == "Widowed")
+    ).astype(int)
+    return df
 
 # ─── API ──────────────────────────────────────────────────────
 API_HOST    = "0.0.0.0"
