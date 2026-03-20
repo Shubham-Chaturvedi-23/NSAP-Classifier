@@ -1,76 +1,69 @@
 """
-api/database.py
-===============
-SQLAlchemy database models and session management.
+Module: api/models/database.py
+Description: SQLAlchemy engine, session factory and base class setup.
+             Provides get_db() dependency for FastAPI route injection
+             and create_tables() called once on application startup.
 """
 
-from sqlalchemy import (
-    create_engine, Column, String, Integer,
-    Float, Boolean, DateTime, Text
-)
+from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
-import uuid
 
-from config import DATABASE_URL
+from api.config import DATABASE_URL
 
+# ─── Engine ───────────────────────────────────────────────────
+# pool_pre_ping — test connection before using from pool
+# pool_recycle  — recycle connections after 1 hour (prevents stale connections)
+# echo          — set True to log all SQL queries (useful for debugging)
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-    echo=False
+    pool_pre_ping = True,
+    pool_recycle  = 3600,
+    echo          = False,
 )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base         = declarative_base()
+# ─── Session Factory ──────────────────────────────────────────
+# autocommit=False — we manually commit transactions
+# autoflush=False  — we manually flush before queries
+SessionLocal = sessionmaker(
+    autocommit = False,
+    autoflush  = False,
+    bind       = engine,
+)
+
+# ─── Base Class ───────────────────────────────────────────────
+# All ORM models in entities.py inherit from this Base.
+# Required for create_all() to discover and create tables.
+Base = declarative_base()
 
 
-class Application(Base):
-    """Stores each applicant submission, model prediction and officer decision."""
-    __tablename__ = "applications"
-
-    # Identity
-    id           = Column(String(36), primary_key=True,
-                          default=lambda: str(uuid.uuid4()))
-    submitted_at = Column(DateTime, default=datetime.now)
-
-    # Applicant features
-    age                   = Column(Integer)
-    gender                = Column(String(10))
-    marital_status        = Column(String(20))
-    annual_income         = Column(Integer)
-    bpl_card              = Column(String(5))
-    area_type             = Column(String(10))
-    state                 = Column(String(50))
-    social_category       = Column(String(20))
-    employment_status     = Column(String(30))
-    has_disability        = Column(String(5))
-    disability_percentage = Column(Integer)
-    disability_type       = Column(String(50))
-    aadhaar_linked        = Column(String(5))
-    bank_account          = Column(String(5))
-
-    # OCR extracted document names
-    documents_uploaded    = Column(Text, nullable=True)
-
-    # Model output
-    predicted_scheme      = Column(String(20))
-    confidence            = Column(Float)
-    all_qualifying        = Column(Text)
-    needs_review          = Column(Boolean, default=False)
-
-    # Officer decision
-    status       = Column(String(20), default="PENDING")
-    officer_note = Column(Text, nullable=True)
-    decided_at   = Column(DateTime, nullable=True)
-
-
+# ─── Table Creation ───────────────────────────────────────────
 def create_tables():
+    """
+    Create all database tables if they do not already exist.
+    Called once during FastAPI application startup in app.py lifespan.
+    Safe to call multiple times — skips existing tables.
+    """
+    # Import entities here to ensure all models are registered
+    # with Base.metadata before create_all() is called.
+    from api.models import entities  # noqa: F401
     Base.metadata.create_all(bind=engine)
 
 
+# ─── Database Dependency ──────────────────────────────────────
 def get_db():
+    """
+    FastAPI dependency that provides a database session per request.
+    Automatically closes session after request completes.
+
+    Usage in routes:
+        from api.models.database import get_db
+        from sqlalchemy.orm import Session
+
+        @router.get("/example")
+        def example(db: Session = Depends(get_db)):
+            ...
+    """
     db = SessionLocal()
     try:
         yield db
