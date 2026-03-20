@@ -34,7 +34,7 @@ def health_check(db: Session = Depends(get_db)):
     """
     # Check database connectivity
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db_status = "connected"
     except Exception as e:
         db_status = f"error: {e}"
