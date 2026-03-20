@@ -20,13 +20,19 @@ build/
 .env
 .env.*
 !.env.example
+!backend/.env.example
 
 # ── ML Model Artifacts ─────────────────────────────────────────
 # Do NOT commit large model files to git
 # Place these manually after cloning:
-#   models/nsap_catboost_model.cbm
-#   models/nsap_label_encoder.pkl
-#   models/nsap_feature_columns.pkl
+#   backend/api/ml_models/nsap_catboost_model.cbm
+#   backend/api/ml_models/nsap_label_encoder.pkl
+#   backend/api/ml_models/nsap_feature_columns.pkl
+backend/api/ml_models/*.cbm
+backend/api/ml_models/*.pkl
+backend/api/ml_models/*.bin
+
+# Old models/ folder path (kept for safety)
 models/*.cbm
 models/*.pkl
 models/*.bin
@@ -35,7 +41,9 @@ models/*.pt
 # ── Dataset ────────────────────────────────────────────────────
 # Large CSV files — do not commit
 *.csv
-!sample_data/sample_5_records.csv   # only this small sample is committed
+!sample_data/sample_5_records.csv
+!ml/fairness_report.csv
+!ml/model_comparison.csv
 
 # ── IDE ────────────────────────────────────────────────────────
 .vscode/
@@ -59,6 +67,10 @@ logs/
 
 # ── Uploads (temp files from OCR) ──────────────────────────────
 temp/
+uploads/*
+!uploads/.gitkeep
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# ── ML Output (generated plots) ────────────────────────────────
 ml/output/

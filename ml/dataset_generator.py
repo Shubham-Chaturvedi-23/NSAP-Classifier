@@ -368,11 +368,13 @@ if __name__ == '__main__':
         seed=args.seed
     )
 
-    # Force output into the sample_data folder where this script lives
-    output_dir = os.path.dirname(os.path.abspath(__file__))
+    # Save dataset to sample_data/ folder at project root
+    # Navigate from ml/ up to project root then into sample_data/
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sample_data_dir = os.path.join(project_root, "sample_data")
     output_file = os.path.basename(args.output)
-    output_path = os.path.join(output_dir, output_file)
-    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(sample_data_dir, output_file)
+    os.makedirs(sample_data_dir, exist_ok=True)
     df.to_csv(output_path, index=False)
 
     print(f'\nDataset saved to: {output_path}')

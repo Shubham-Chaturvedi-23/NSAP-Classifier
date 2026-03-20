@@ -1,0 +1,6 @@
+applicant_id,age,gender,marital_status,annual_income,bpl_card,area_type,social_category,employment_status,has_disability,disability_percentage,disability_type,aadhaar_linked,bank_account,state,primary_scheme
+SAMPLE001,68,Female,Widowed,35000,Yes,Rural,SC,Unemployed,No,0,None,Yes,Yes,Uttar Pradesh,WP
+SAMPLE002,35,Male,Single,28000,Yes,Rural,ST,Unemployed,Yes,65,Locomotor,Yes,Yes,Bihar,DP
+SAMPLE003,55,Male,Married,250000,No,Urban,General,Salaried,No,0,None,Yes,Yes,Maharashtra,NOT_ELIGIBLE
+SAMPLE004,72,Male,Married,42000,Yes,Rural,OBC,Unemployed,No,0,None,Yes,Yes,Rajasthan,OAP
+SAMPLE005,59,Female,Widowed,69500,Yes,Rural,SC,Agricultural Labour,No,0,None,Yes,Yes,Madhya Pradesh,NOT_ELIGIBLE
