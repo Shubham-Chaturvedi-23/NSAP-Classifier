@@ -2,31 +2,39 @@
 # Python 3.13 compatible | All versions verified from PyPI (March 2026)
 # Install with: pip install -r requirements.txt
 
-# First Install catboost wheel (pre-built only, no source build) before the rest of the dependencies to avoid Rust/C++ build issues on some platforms.
-# Install with: pip install catboost==1.2.10 --only-binary=catboost
+# First install CatBoost wheel (pre-built only, no source build)
+# before the rest of the dependencies to avoid Rust/C++ build issues.
+# Run: pip install catboost==1.2.10 --only-binary=catboost
 
-# ── API Framework ──────────────────────────────────────────────
+# SHAP has build problems on Python 3.13.
+#pip install shap --only-binary=shap  could try to install a pre-built wheel, but if it fails, you can omit SHAP for now.
+
+# ── API Framework ─────────────────────────────────────────────
 fastapi==0.135.1             # latest stable | py3.10–3.14
 uvicorn[standard]==0.42.0    # latest stable | py3.9+
 python-multipart==0.0.22     # latest stable | py3.13 compatible
 python-dotenv==1.0.1         # latest stable | py3.13 compatible
 
-# ── Database ───────────────────────────────────────────────────
+# ── Database ──────────────────────────────────────────────────
 sqlalchemy==2.0.48           # latest stable (2026-03-02) | py3.13 compatible
 pymysql==1.1.1               # latest stable (2025-08-24) | py3.13 compatible
 cryptography==46.0.5         # latest stable (2026-02-10) | py3.8+ (abi3 wheel)
 
-# ── ML Model ───────────────────────────────────────────────────
+# ── Authentication ────────────────────────────────────────────
+python-jose[cryptography]==3.3.0    # JWT token creation and verification
+passlib[bcrypt]==1.7.4              # password hashing with bcrypt
+
+# ── ML Model ──────────────────────────────────────────────────
 catboost==1.2.10             # latest stable (2026-02-18) | explicit py3.13 wheels
 scikit-learn==1.8.0          # latest stable | py3.13 compatible
 pandas==2.2.3                # latest stable | py3.13 compatible
 numpy==2.4.3                 # latest stable (2026-03-09) | required for opencv 4.13+
+#shap==0.45.1                 # SHAP explainability — used in prediction service
 
-# ── Training / Experimentation (notebook only) ─────────────────
+# ── Training / Experimentation (notebook only) ────────────────
 #xgboost==2.0.3               # baseline model comparison
 #lightgbm==4.3.0              # baseline model comparison
 #imbalanced-learn==0.12.3     # SMOTE oversampling for minority class (DP)
-#shap==0.45.1                 # model explainability via Shapley values
 #optuna==3.6.1                # Bayesian hyperparameter tuning (50 trials)
 #matplotlib==3.9.2            # confusion matrix + SHAP plots
 #seaborn==0.13.2              # confusion matrix heatmap
@@ -34,11 +42,15 @@ numpy==2.4.3                 # latest stable (2026-03-09) | required for opencv 
 # ── Dataset Generator (dataset_generator.py) ──────────────────
 # pandas and numpy already listed above — no additional deps needed
 
-# ── OCR ────────────────────────────────────────────────────────
+# ── OCR ───────────────────────────────────────────────────────
 pytesseract==0.3.13          # latest stable | pure Python, py3.13 compatible
 opencv-python==4.13.0.92     # latest stable (2026-02-05) | numpy 2.x compatible
 Pillow==12.1.1               # latest stable (2026-02-11) | py3.13 + py3.14
 pymupdf==1.27.2              # latest stable | py3.10 abi3 wheel, all py versions
 
-# ── Utilities ──────────────────────────────────────────────────
-pydantic==2.12.4             # latest stable (2025-11-26) | py3.9–3.13
+# ── Storage ───────────────────────────────────────────────────
+cloudinary==1.41.0           # Cloudinary SDK for document image storage
+
+# ── Utilities ─────────────────────────────────────────────────
+pydantic[email]==2.12.4      # latest stable | email validation for UserRegister
+httpx==0.28.1                # async HTTP client (future use / testing)
