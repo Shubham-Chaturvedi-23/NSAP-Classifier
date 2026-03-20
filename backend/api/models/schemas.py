@@ -17,7 +17,7 @@ class UserRegister(BaseModel):
     name:     str       = Field(..., min_length=2,  max_length=100)
     email:    EmailStr
     phone:    Optional[str] = Field(None, max_length=15)
-    password: str       = Field(..., min_length=6,  max_length=100)
+    password: str       = Field(..., min_length=6,  max_length=72)
     role:     str       = Field("citizen", pattern="^(citizen|officer|admin)$")
     address:  Optional[str] = None
     state:    Optional[str] = None
@@ -40,7 +40,7 @@ class UserRegister(BaseModel):
 class UserLogin(BaseModel):
     """Request body for login."""
     email:    EmailStr
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=6,max_length=72)
 
     model_config = {
         "json_schema_extra": {

@@ -23,6 +23,7 @@ cryptography==46.0.5         # latest stable (2026-02-10) | py3.8+ (abi3 wheel)
 # ── Authentication ────────────────────────────────────────────
 python-jose[cryptography]==3.3.0    # JWT token creation and verification
 passlib[bcrypt]==1.7.4              # password hashing with bcrypt
+bcrypt==4.0.1                       # pin to 4.0.1 — newer versions incompatible with passlib
 
 # ── ML Model ──────────────────────────────────────────────────
 catboost==1.2.10             # latest stable (2026-02-18) | explicit py3.13 wheels
