@@ -44,8 +44,8 @@ ML_DIR = Path(__file__).resolve().parents[3] / "ml"
 
 MODEL_COMPARISON_CSV = ML_DIR / "model_comparison.csv"
 FAIRNESS_REPORT_CSV  = ML_DIR / "fairness_report.csv"
-CONFUSION_MATRIX_PNG = ML_DIR / "output" / "confusion_matrix_catboost (5).png"
-SHAP_SUMMARY_PNG     = ML_DIR / "output" / "shap_summary.png"
+CONFUSION_MATRIX_PNG = ML_DIR / "output" / "confusion_matrix_catboost.png"
+SHAP_SUMMARY_PNG     = ML_DIR / "output" / "shap_summary_plot.png"
 
 
 # ─── Dashboard Statistics ─────────────────────────────────────
