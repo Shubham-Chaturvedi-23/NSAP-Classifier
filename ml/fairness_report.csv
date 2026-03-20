@@ -1,0 +1,9 @@
+Group_Column,Group,Count,Not_Eligible_Rate,Error_Rate,False_Not_Eligible_Rate,False_Eligible_Rate,Flag
+gender,Female,2833,0.2679,0.0692,0.0166,0.0293,✓ OK
+gender,Male,1667,0.3095,0.0672,0.018,0.021,✓ OK
+area_type,Rural,3345,0.2831,0.0685,0.0164,0.0257,✓ OK
+area_type,Urban,1155,0.284,0.0684,0.019,0.0277,✓ OK
+social_category,SC,1157,0.2939,0.0735,0.0259,0.0268,✓ OK
+social_category,OBC,1796,0.2823,0.0612,0.0117,0.0267,✓ OK
+social_category,General,876,0.29,0.0776,0.0171,0.0251,✓ OK
+social_category,ST,671,0.2593,0.0671,0.0164,0.0253,✓ OK
