@@ -1,5 +1,7 @@
 # ── Python ─────────────────────────────────────────────────────
 __pycache__/
+*.pyc
+*.pyo
 *.py[cod]
 *$py.class
 *.so
@@ -56,5 +58,7 @@ frontend/.env.*
 logs/
 
 # ── Uploads (temp files from OCR) ──────────────────────────────
-uploads/
 temp/
+backend/uploads/*
+!backend/uploads/.gitkeep
+ml/output/
