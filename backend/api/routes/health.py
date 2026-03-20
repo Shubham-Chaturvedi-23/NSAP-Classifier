@@ -8,6 +8,7 @@ Description: Health check endpoint.
 from datetime import datetime
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from api.models.database import get_db
 from api.services.prediction import get_model_info
