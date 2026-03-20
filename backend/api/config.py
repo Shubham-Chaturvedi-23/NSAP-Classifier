@@ -8,9 +8,6 @@ Description: Central configuration for NSAP Classification API.
              Any change to features or thresholds in the notebook
              must be reflected here or inference will produce wrong results.
 
-Author: Shubham Chaturvedi, Shreyash Singh, Harshit Maurya, Parth Sharma
-Institution: G.L. Bajaj Group of Institutions, Mathura
-Project: NSAP Scheme Classification System (AY 2025-26)
 """
 
 import os
