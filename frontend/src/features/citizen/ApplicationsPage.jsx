@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { citizenApi } from "../../api/citizen.api";
+import { useTranslation } from "react-i18next";
 import { fmtDate, getStatusLabel } from "../../utils/formatters";
 import { STATUS_BADGE_MAP, SCHEME_LABELS } from "../../utils/constants";
 
 export default function CitizenApplicationsPage() {
+  const { t } = useTranslation();
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [offset, setOffset] = useState(0);
@@ -42,11 +44,11 @@ export default function CitizenApplicationsPage() {
         }}
       >
         <div>
-          <h1>My Applications</h1>
+          <h1>{t('nav.applications')}</h1>
           <p>Track your scheme applications and their status</p>
         </div>
         <Link to="/citizen/apply" className="btn btn-primary">
-          ✏️ New Application
+          ✏️ {t('app.new_application')}
         </Link>
       </div>
 
@@ -58,7 +60,7 @@ export default function CitizenApplicationsPage() {
         ) : !Array.isArray(apps) || apps.length === 0 ? (
           <div className="empty-state">
             <div className="icon">📋</div>
-            <h3>No applications yet</h3>
+            <h3>{t('app.no_applications')}</h3>
             <p>Submit your first application to get started</p>
             <Link
               to="/citizen/apply"

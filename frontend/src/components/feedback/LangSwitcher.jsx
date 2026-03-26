@@ -5,11 +5,18 @@ export default function LangSwitcher() {
   const { i18n } = useTranslation();
   const [lang, setLang] = useState(i18n.language || 'en');
 
+  useEffect(() => {
+    const handleLanguageChanged = (lng) => {
+      setLang(lng);
+    };
+    i18n.on('languageChanged', handleLanguageChanged);
+    return () => i18n.off('languageChanged', handleLanguageChanged);
+  }, [i18n]);
+
   const toggle = () => {
     const next = lang === 'en' ? 'hi' : 'en';
     i18n.changeLanguage(next);
     localStorage.setItem('lang', next);
-    setLang(next);
   };
 
   return (

@@ -23,7 +23,7 @@ export default function OfficerReviewPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const canDecide = app && !app.decision && ['pending', 'needs_review', 'auto_approved'].includes(app.status);
+  const canDecide = app && !app.decision && ['needs_review', 'auto_approved'].includes(app.status);
 
   const handleDecide = async (e) => {
     e.preventDefault();

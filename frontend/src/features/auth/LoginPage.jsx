@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, useToast } from '../../app/providers';
+import { useTranslation } from 'react-i18next';
 import { getRoleHomePath } from '../../utils/guards';
 import './Auth.css';
 
 export default function LoginPage() {
   const { login } = useAuth();
   const { addToast } = useToast();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
@@ -17,10 +19,10 @@ export default function LoginPage() {
     setError(''); setLoading(true);
     try {
       const user = await login(form.email, form.password);
-      addToast('Welcome back!', 'success');
+      addToast(t('auth.welcome_back'), 'success');
       navigate(getRoleHomePath(user.role));
     } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid email or password.');
+      setError(err.response?.data?.detail || t('auth.invalid_creds'));
     } finally {
       setLoading(false);
     }
@@ -35,14 +37,14 @@ export default function LoginPage() {
       </div>
 
       <div className="auth-card card">
-        <h2>Sign In</h2>
-        <p className="auth-sub">Access your scheme management portal</p>
+        <h2>{t('auth.login')}</h2>
+        <p className="auth-sub">{t('auth.access_portal')}</p>
 
         {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Email Address</label>
+            <label>{t('auth.email')}</label>
             <input
               type="email" required placeholder="you@example.com"
               value={form.email}
@@ -50,7 +52,7 @@ export default function LoginPage() {
             />
           </div>
           <div className="form-group">
-            <label>Password</label>
+            <label>{t('auth.password')}</label>
             <input
               type="password" required placeholder="••••••••"
               value={form.password}
@@ -58,11 +60,11 @@ export default function LoginPage() {
             />
           </div>
           <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }} disabled={loading}>
-            {loading ? 'Signing in…' : 'Sign In'}
+            {loading ? t('auth.signing_in') : t('auth.login')}
           </button>
         </form>
 
-        <p className="auth-link">Don't have an account? <Link to="/register">Register here</Link></p>
+        <p className="auth-link">{t('auth.no_account')} <Link to="/register">{t('auth.register_here')}</Link></p>
 
         
       </div>

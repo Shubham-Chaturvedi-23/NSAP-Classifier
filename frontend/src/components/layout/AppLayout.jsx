@@ -1,31 +1,33 @@
 import React, { useState, useEffect } from "react";
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
+import { useTranslation } from 'react-i18next';
 import { ROLES } from '../../utils/constants';
 import LangSwitcher from '../feedback/LangSwitcher';
 import './AppLayout.css';
 
-const NAV = {
-  [ROLES.CITIZEN]: [
-    { to: '/citizen/applications', icon: '📋', label: 'My Applications' },
-    { to: '/citizen/apply',        icon: '✏️',  label: 'New Application' },
-    { to: '/citizen/notifications',icon: '🔔',  label: 'Notifications' },
-  ],
-  [ROLES.OFFICER]: [
-    { to: '/officer/queue',        icon: '⚡',  label: 'Review Queue' },
-    { to: '/officer/applications', icon: '📂',  label: 'All Applications' },
-  ],
-  [ROLES.ADMIN]: [
-    { to: '/admin/dashboard',   icon: '📊', label: 'Dashboard' },
-    { to: '/admin/applications',icon: '📂', label: 'Applications' },
-    { to: '/admin/model',       icon: '🤖', label: 'Model Metrics' },
-    { to: '/admin/users',       icon: '👥', label: 'Users' },
-  ],
-};
-
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  
+  const NAV = {
+    [ROLES.CITIZEN]: [
+      { to: '/citizen/applications', icon: '📋', label: t('nav.applications') },
+      { to: '/citizen/apply',        icon: '✏️',  label: t('nav.apply') },
+      { to: '/citizen/notifications',icon: '🔔',  label: t('nav.notifications') },
+    ],
+    [ROLES.OFFICER]: [
+      { to: '/officer/queue',        icon: '⚡',  label: t('nav.queue') },
+      { to: '/officer/applications', icon: '📂',  label: t('nav.all_apps') },
+    ],
+    [ROLES.ADMIN]: [
+      { to: '/admin/dashboard',   icon: '📊', label: t('nav.dashboard') },
+      { to: '/admin/applications',icon: '📂', label: t('nav.all_apps') },
+      { to: '/admin/model',       icon: '🤖', label: t('nav.model') },
+      { to: '/admin/users',       icon: '👥', label: t('nav.users') },
+    ],
+  };
 
   const navItems = NAV[user?.role] || [];
 
@@ -58,11 +60,11 @@ export default function AppLayout() {
         <div className="sidebar-footer">
           <NavLink to="/profile" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <span className="nav-icon">👤</span>
-            <span>Profile</span>
+            <span>{t('nav.profile')}</span>
           </NavLink>
           <button className="nav-item logout-btn" onClick={handleLogout}>
             <span className="nav-icon">🚪</span>
-            <span>Logout</span>
+            <span>{t('nav.logout')}</span>
           </button>
         </div>
       </aside>

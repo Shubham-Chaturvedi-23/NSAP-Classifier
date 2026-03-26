@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../../api/auth.api';
 import { useToast } from '../../app/providers';
+import { useTranslation } from 'react-i18next';
 import './Auth.css';
 
 export default function RegisterPage() {
   const { addToast } = useToast();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', state: '', address: '' });
   const [error, setError] = useState('');
@@ -18,10 +20,10 @@ export default function RegisterPage() {
     setError(''); setLoading(true);
     try {
       await authApi.register(form);
-      addToast('Account created! Please sign in.', 'success');
+      addToast(t('auth.account_created'), 'success');
       navigate('/login');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Registration failed. Try again.');
+      setError(err.response?.data?.detail || t('auth.reg_failed'));
     } finally {
       setLoading(false);
     }
@@ -36,44 +38,44 @@ export default function RegisterPage() {
       </div>
 
       <div className="auth-card card" style={{ maxWidth: 480 }}>
-        <h2>Register</h2>
-        <p className="auth-sub">Fill in your details to get started</p>
+        <h2>{t('auth.register')}</h2>
+        <p className="auth-sub">{t('auth.fill_details')}</p>
 
         {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="grid-2">
             <div className="form-group">
-              <label>Full Name *</label>
-              <input required placeholder="Your name" value={form.name} onChange={set('name')} />
+              <label>{t('auth.full_name')} *</label>
+              <input required placeholder={t('auth.your_name')} value={form.name} onChange={set('name')} />
             </div>
             <div className="form-group">
-              <label>Phone</label>
-              <input placeholder="+91 XXXXX XXXXX" value={form.phone} onChange={set('phone')} />
+              <label>{t('auth.phone')}</label>
+              <input placeholder={t('auth.phone_format')} value={form.phone} onChange={set('phone')} />
             </div>
           </div>
           <div className="form-group">
-            <label>Email Address *</label>
+            <label>{t('auth.email')} *</label>
             <input type="email" required placeholder="you@example.com" value={form.email} onChange={set('email')} />
           </div>
           <div className="form-group">
-            <label>Password *</label>
+            <label>{t('auth.password')} *</label>
             <input type="password" required minLength={6} placeholder="Min 6 characters" value={form.password} onChange={set('password')} />
           </div>
           <div className="form-group">
-            <label>State</label>
-            <input placeholder="Your state" value={form.state} onChange={set('state')} />
+            <label>{t('auth.state')}</label>
+            <input placeholder={t('auth.your_state')} value={form.state} onChange={set('state')} />
           </div>
           <div className="form-group">
-            <label>Address</label>
-            <textarea rows={2} placeholder="Your address" value={form.address} onChange={set('address')} style={{ resize: 'vertical' }} />
+            <label>{t('auth.address')}</label>
+            <textarea rows={2} placeholder={t('auth.your_address')} value={form.address} onChange={set('address')} style={{ resize: 'vertical' }} />
           </div>
           <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }} disabled={loading}>
-            {loading ? 'Creating account…' : 'Create Account'}
+            {loading ? t('auth.creating_account') : t('auth.create_account')}
           </button>
         </form>
 
-        <p className="auth-link">Already have an account? <Link to="/login">Sign in</Link></p>
+        <p className="auth-link">{t('auth.already_have_account')} <Link to="/login">{t('auth.sign_in_link')}</Link></p>
       </div>
     </div>
   );

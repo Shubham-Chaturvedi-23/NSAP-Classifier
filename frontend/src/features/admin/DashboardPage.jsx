@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { adminApi } from '../../api/admin.api';
+import { useTranslation } from 'react-i18next';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#f0883e', '#388bfd', '#3fb950', '#f85149', '#d29922'];
 
 export default function AdminDashboard() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState(null);
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,29 +22,29 @@ export default function AdminDashboard() {
 
   if (loading) return <div className="loading"><div className="spinner" /></div>;
 
-  const schemeData = stats?.scheme_distribution
-    ? Object.entries(stats.scheme_distribution).map(([k, v]) => ({ name: k, value: v }))
+  const schemeData = stats?.applications?.by_scheme
+    ? Object.entries(stats.applications.by_scheme).map(([k, v]) => ({ name: k, value: v }))
     : [];
 
-  const statusData = stats?.status_distribution
-    ? Object.entries(stats.status_distribution).map(([k, v]) => ({ name: k, value: v }))
+  const statusData = stats?.applications?.by_status
+    ? Object.entries(stats.applications.by_status).map(([k, v]) => ({ name: k, value: v }))
     : [];
 
   return (
     <div>
       <div className="page-header">
-        <h1>Admin Dashboard</h1>
-        <p>System-wide analytics and performance metrics</p>
+        <h1>{t('admin.dashboard')}</h1>
+        <p>{t('admin.dashboard_sub')}</p>
       </div>
 
       {/* Summary stats */}
       {stats && (
         <div className="grid-4" style={{ marginBottom: 24 }}>
           {[
-            { label: 'Total Applications', value: stats.total_applications ?? '—', icon: '📋', color: 'var(--accent2)' },
-            { label: 'Pending Review', value: stats.pending_review ?? stats.pending ?? '—', icon: '⏳', color: 'var(--warning)' },
-            { label: 'Approved', value: stats.approved ?? '—', icon: '✅', color: 'var(--success)' },
-            { label: 'Model Accuracy', value: stats.model_accuracy ? `${(stats.model_accuracy * 100).toFixed(1)}%` : '—', icon: '🤖', color: 'var(--accent)' },
+            { label: t('admin.total_apps'), value: stats.applications?.total ?? '—', icon: '📋', color: 'var(--accent2)' },
+            { label: t('admin.pending_review'), value: stats.applications?.by_status?.needs_review ?? stats.applications?.by_status?.pending ?? '—', icon: '⏳', color: 'var(--warning)' },
+            { label: t('admin.approved'), value: stats.applications?.by_status?.approved ?? '—', icon: '✅', color: 'var(--success)' },
+            { label: 'Avg Confidence', value: stats.model?.avg_confidence != null ? `${(stats.model.avg_confidence * 100).toFixed(1)}%` : '—', icon: '🤖', color: 'var(--accent)' },
           ].map((s) => (
             <div key={s.label} className="card stat-card">
               <div className="label" style={{ color: s.color }}>{s.icon} {s.label}</div>
@@ -113,10 +115,10 @@ export default function AdminDashboard() {
                       {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
                     </td>
                     <td style={{ fontWeight: 600 }}>{o.name || o.officer_name || `Officer #${o.officer_id}`}</td>
-                    <td style={{ fontFamily: 'var(--mono)' }}>{o.total_reviewed ?? o.total ?? '—'}</td>
+                    <td style={{ fontFamily: 'var(--mono)' }}>{o.total_reviewed ?? o.total_decisions ?? o.total ?? '—'}</td>
                     <td style={{ color: 'var(--success)', fontFamily: 'var(--mono)' }}>{o.approved ?? '—'}</td>
                     <td style={{ color: 'var(--danger)', fontFamily: 'var(--mono)' }}>{o.rejected ?? '—'}</td>
-                    <td style={{ color: 'var(--text2)', fontSize: 13 }}>{o.avg_decision_time ?? '—'}</td>
+                    <td style={{ color: 'var(--text2)', fontSize: 13 }}>{o.avg_decision_time ?? o.decisions_today ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>

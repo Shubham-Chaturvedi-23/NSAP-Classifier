@@ -106,18 +106,20 @@ export default function AdminApplicationsPage() {
                 {safeApps.map((a) => (
                   <tr key={a.id}>
                     <td>#{a.id}</td>
-                    <td>{fmtDate(a.created_at)}</td>
+                    <td>{fmtDate(a.submitted_at || a.created_at)}</td>
                     <td>{a.citizen_name || a.citizen_email || '—'}</td>
 
                     <td>
                       {SCHEME_LABELS[a?.prediction?.predicted_scheme] ||
                         a?.prediction?.predicted_scheme ||
+                        SCHEME_LABELS[a?.predicted_scheme] ||
+                        a?.predicted_scheme ||
                         '—'}
                     </td>
 
                     <td>
-                      {a?.prediction?.confidence_score != null
-                        ? `${Math.round(a.prediction.confidence_score * 100)}%`
+                      {(a?.prediction?.confidence_score ?? a?.confidence_score) != null
+                        ? `${Math.round((a?.prediction?.confidence_score ?? a?.confidence_score) * 100)}%`
                         : '—'}
                     </td>
 
@@ -128,10 +130,8 @@ export default function AdminApplicationsPage() {
                     </td>
 
                     <td>
-                      {a?.decision
-                        ? <span className={`badge ${a.decision.decision === 'approved' ? 'badge-approved' : 'badge-rejected'}`}>
-                            {a.decision.decision}
-                          </span>
+                      {a?.has_decision
+                        ? <span className="badge badge-review">Recorded</span>
                         : '—'}
                     </td>
                   </tr>

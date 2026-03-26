@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { citizenApi } from '../../api/citizen.api';
 import { useToast } from '../../app/providers';
+import { useTranslation } from 'react-i18next';
 import {
   GENDER_OPTIONS, MARITAL_OPTIONS, AREA_OPTIONS, YES_NO,
   EMPLOYMENT_OPTIONS, SOCIAL_CATEGORIES, DISABILITY_TYPES, INDIA_STATES
@@ -35,6 +36,8 @@ const DEFAULTS = {
 export default function ApplyPage() {
   const { addToast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get('id');
   const [form, setForm] = useState(DEFAULTS);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -45,12 +48,42 @@ export default function ApplyPage() {
     setErrors((er) => ({ ...er, [k]: '' }));
   };
 
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    if (!editId) return;
+    setLoading(true);
+    citizenApi.getApplication(editId)
+      .then((res) => {
+        const app = res?.data || {};
+        setForm((prev) => ({
+          ...prev,
+          age: app.age ?? prev.age,
+          gender: app.gender ?? prev.gender,
+          marital_status: app.marital_status ?? prev.marital_status,
+          annual_income: app.annual_income ?? prev.annual_income,
+          bpl_card: app.bpl_card ?? prev.bpl_card,
+          area_type: app.area_type ?? prev.area_type,
+          state: app.state ?? prev.state,
+          social_category: app.social_category ?? prev.social_category,
+          employment_status: app.employment_status ?? prev.employment_status,
+          has_disability: app.has_disability ?? prev.has_disability,
+          disability_percentage: app.disability_percentage ?? prev.disability_percentage,
+          disability_type: app.disability_type ?? prev.disability_type,
+          aadhaar_linked: app.aadhaar_linked ?? prev.aadhaar_linked,
+          bank_account: app.bank_account ?? prev.bank_account,
+        }));
+      })
+      .catch(() => addToast('Failed to load application for edit.', 'error'))
+      .finally(() => setLoading(false));
+  }, [editId]);
+  
   const validate = () => {
     const e = {};
-    if (!form.age || form.age < 18 || form.age > 120) e.age = 'Age must be 18–120';
-    if (!form.annual_income && form.annual_income !== 0) e.annual_income = 'Income is required';
+    if (!form.age || form.age < 18 || form.age > 120) e.age = t('app.age_invalid');
+    if (!form.annual_income && form.annual_income !== 0) e.annual_income = t('app.income_required');
     if (form.has_disability === 'Yes' && (form.disability_percentage < 1 || form.disability_percentage > 100))
-      e.disability_percentage = 'Enter valid percentage';
+      e.disability_percentage = t('app.percentage_invalid');
     return e;
   };
 
@@ -66,11 +99,13 @@ export default function ApplyPage() {
         annual_income: Number(form.annual_income),
         disability_percentage: Number(form.disability_percentage),
       };
-      const res = await citizenApi.apply(payload);
-      addToast('Application submitted!', 'success');
-      navigate(`/citizen/applications/${res.data.id || res.data.application_id}`);
+      const res = editId
+        ? await citizenApi.updateApplication(editId, payload)
+        : await citizenApi.apply(payload);
+      addToast(editId ? 'Application updated.' : t('app.submitted'), 'success');
+      navigate(`/citizen/applications/${res.data.id || res.data.application_id || editId}`);
     } catch (err) {
-      addToast(err.response?.data?.detail || 'Submission failed.', 'error');
+      addToast(err.response?.data?.detail || t('app.submission_failed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -79,18 +114,18 @@ export default function ApplyPage() {
   return (
     <div style={{ maxWidth: 720 }}>
       <div className="page-header">
-        <h1>New Application</h1>
-        <p>Submit your details for scheme eligibility assessment</p>
+        <h1>{editId ? 'Edit Application' : t('app.new_application')}</h1>
+        <p>{editId ? 'Update details before uploading documents.' : t('app.submit_details')}</p>
       </div>
 
       <div className="card">
         <div className="alert alert-info" style={{ marginBottom: 20 }}>
-          ℹ️ Fill all fields accurately. The prediction model uses this data to recommend the appropriate scheme.
+          ℹ️ {t('app.fill_accurately')}
         </div>
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>Personal Information</h3>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>{t('app.personal_info')}</h3>
             <div className="grid-2">
               {FIELDS.slice(0, 4).map((f) => (
                 <FieldInput key={f.key} field={f} value={form[f.key]} onChange={set(f.key)} error={errors[f.key]} />
@@ -112,7 +147,11 @@ export default function ApplyPage() {
             <div className="grid-2">
               {FIELDS.slice(9).map((f) => (
                 <FieldInput key={f.key} field={f} value={form[f.key]} onChange={set(f.key)} error={errors[f.key]}
-                  disabled={f.key === 'disability_percentage' || f.key === 'disability_type' ? form.has_disability !== 'Yes' : false}
+                  disabled={
+                    (f.key === 'disability_percentage' || f.key === 'disability_type')
+                      ? String(form.has_disability).toLowerCase() !== 'yes'
+                      : false
+                  }
                 />
               ))}
             </div>
@@ -120,7 +159,7 @@ export default function ApplyPage() {
 
           <div style={{ display: 'flex', gap: 12 }}>
             <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Submitting…' : '🚀 Submit Application'}
+              {loading ? 'Saving…' : (editId ? '💾 Save Changes' : '🚀 Submit Application')}
             </button>
             <button type="button" className="btn btn-secondary" onClick={() => navigate('/citizen/applications')}>
               Cancel

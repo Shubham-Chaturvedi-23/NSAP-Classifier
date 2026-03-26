@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi import Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pydantic import BaseModel
 
 from api.models.database import get_db
 from api.models.entities import Application, Document, Prediction
@@ -42,6 +43,21 @@ from api.config import AppStatus, SCHEME_LABELS, SCHEME_LABELS_HI
 router = APIRouter(prefix="/citizen", tags=["Citizen"])
 
 
+class VerifyDocumentsRequest(BaseModel):
+    application_id: str
+
+
+def _required_doc_types(application: Application) -> List[str]:
+    required = ["aadhaar"]
+    if application.bpl_card == "Yes":
+        required.append("bpl_card")
+    if application.marital_status == "Widowed":
+        required.append("death_certificate")
+    if application.has_disability == "Yes":
+        required.append("disability_certificate")
+    return required
+
+
 # ─── Submit Application ───────────────────────────────────────
 @router.post("/apply", status_code=status.HTTP_201_CREATED)
 def submit_application(
@@ -53,36 +69,21 @@ def submit_application(
     POST /api/v1/citizen/apply
 
     Submit a new NSAP scheme application.
-    Runs model inference and saves result to database.
+    ML inference is deferred until document verification succeeds.
 
     Flow:
         1. Validate input fields
-        2. Run CatBoost inference
-        3. Determine status based on confidence threshold
-           - confidence >= 85% → auto_approved (needs officer signoff)
-           - confidence <  85% → needs_review (priority officer queue)
-        4. Save Application + Prediction to database
-        5. Create submission notification for citizen
-        6. Return full application with prediction details
+        2. Save Application with pending status
+        3. Notify citizen that documents must be uploaded and verified
+        4. Return application metadata (no prediction yet)
 
     Raises:
-        HTTPException 400: If inference fails.
+        HTTPException 400: If submission payload is invalid.
     """
-    # Step 1 — Run model inference
-    input_dict = data.model_dump()
-    result     = run_prediction(input_dict)
-
-    # Step 2 — Determine initial status based on confidence
-    initial_status = (
-        AppStatus.AUTO_APPROVED
-        if not result["needs_review"]
-        else AppStatus.NEEDS_REVIEW
-    )
-
-    # Step 3 — Save Application
+    # Step 1 — Save Application in pending state
     application = Application(
         citizen_id            = current_user.id,
-        status                = initial_status,
+        status                = AppStatus.PENDING,
         age                   = data.age,
         gender                = data.gender,
         marital_status        = data.marital_status,
@@ -99,43 +100,24 @@ def submit_application(
         bank_account          = data.bank_account,
     )
     db.add(application)
-    db.flush()  # get application.id before committing
-
-    # Step 4 — Save Prediction
-    prediction = Prediction(
-        application_id    = application.id,
-        predicted_scheme  = result["predicted_scheme"],
-        confidence_score  = result["confidence_score"],
-        all_probabilities = json.dumps(result["all_probabilities"]),
-        needs_review      = result["needs_review"],
-        shap_values       = json.dumps(result["shap_values"])
-                            if result["shap_values"] else None,
-    )
-    db.add(prediction)
     db.commit()
     db.refresh(application)
 
-    # Step 5 — Notify citizen of submission
+    # Step 2 — Notify citizen of submission
     notify_status_change(
         db          = db,
         application = application,
-        new_status  = initial_status,
+        new_status  = AppStatus.PENDING,
     )
 
-    # Step 6 — Build response
+    # Step 3 — Build response
     return {
         "application_id":    application.id,
         "status":            application.status,
         "submitted_at":      application.submitted_at.isoformat(),
-        "predicted_scheme":  result["predicted_scheme"],
-        "scheme_full_name":  result["scheme_full_name"],
-        "scheme_full_name_hi": result["scheme_full_name_hi"],
-        "confidence_score":  result["confidence_score"],
-        "needs_review":      result["needs_review"],
-        "all_probabilities": result["all_probabilities"],
         "message": (
             "Application submitted successfully. "
-            "An officer will review your application shortly."
+            "Please upload and verify required documents to continue."
         ),
     }
 
@@ -144,6 +126,7 @@ def submit_application(
 @router.post("/documents/upload")
 async def upload_documents(
     application_id: str              = Form(...),
+    declared_doc_type: Optional[str] = Form(None),
     files:          List[UploadFile] = File(...),
     current_user:   User             = Depends(require_citizen),
     db:             Session          = Depends(get_db),
@@ -204,7 +187,10 @@ async def upload_documents(
         try:
             img      = load_image_from_bytes(file_bytes, file.filename)
             raw_text = extract_text(img)
-            doc_type = detect_document_type(raw_text)
+            detected_doc_type = detect_document_type(raw_text)
+            # For explicit UI uploads, trust the selected type first.
+            # This avoids OCR misclassification hiding required docs.
+            doc_type = declared_doc_type or detected_doc_type or "unknown"
             cert_num = extract_certificate_number(raw_text, doc_type)
 
             # Extract fields
@@ -224,9 +210,9 @@ async def upload_documents(
 
             merged_fields.update(extracted)
 
-        except Exception as e:
+        except Exception:
             raw_text  = ""
-            doc_type  = "unknown"
+            doc_type  = declared_doc_type or "unknown"
             cert_num  = None
             extracted = {}
 
@@ -279,7 +265,7 @@ async def upload_documents(
 # ─── Verify Documents ─────────────────────────────────────────
 @router.post("/documents/verify")
 def verify_documents(
-    application_id: str,
+    data:           VerifyDocumentsRequest,
     current_user:   User    = Depends(require_citizen),
     db:             Session = Depends(get_db),
 ):
@@ -298,6 +284,8 @@ def verify_documents(
     Raises:
         HTTPException 404: If application not found.
     """
+    application_id = data.application_id
+
     # Verify application ownership
     application = db.query(Application).filter(
         Application.id         == application_id,
@@ -310,16 +298,28 @@ def verify_documents(
             detail      = "Application not found.",
         )
 
-    # Fetch all documents
-    documents = db.query(Document).filter(
-        Document.application_id == application_id
-    ).all()
+    required_doc_types = _required_doc_types(application)
 
-    if not documents:
-        raise HTTPException(
-            status_code = status.HTTP_404_NOT_FOUND,
-            detail      = "No documents found for this application.",
+    # Verify required documents only, using latest uploaded document per type.
+    documents = []
+    for required_type in required_doc_types:
+        latest_doc = (
+            db.query(Document)
+            .filter(
+                Document.application_id == application_id,
+                Document.doc_type == required_type,
+            )
+            .order_by(Document.uploaded_at.desc())
+            .first()
         )
+
+        if not latest_doc:
+            raise HTTPException(
+                status_code = status.HTTP_400_BAD_REQUEST,
+                detail      = f"Missing required document: {required_type}",
+            )
+
+        documents.append(latest_doc)
 
     # Run verification for each document
     verification_results = []
@@ -342,17 +342,97 @@ def verify_documents(
     # Build summary
     summary = get_verification_summary(verification_results)
 
+    # If verification failed for any required document, reject immediately.
+    if not summary["all_verified"]:
+        application.status = AppStatus.REJECTED
+        db.commit()
+
+        notify_status_change(
+            db          = db,
+            application = application,
+            new_status  = AppStatus.REJECTED,
+            remarks     = "Document verification failed.",
+        )
+
+        return {
+            "application_id":   application_id,
+            "status":           application.status,
+            "results":          verification_results,
+            "all_verified":     False,
+            "verified_count":   summary["verified_count"],
+            "failed_count":     summary["failed_count"],
+            "extracted_fields": summary["extracted_fields"],
+            "message": (
+                "One or more documents could not be verified. "
+                "Application has been rejected."
+            ),
+        }
+
+    # All documents verified: run ML now and push to officer queue.
+    result = run_prediction({
+        "age": application.age,
+        "gender": application.gender,
+        "marital_status": application.marital_status,
+        "annual_income": application.annual_income,
+        "bpl_card": application.bpl_card,
+        "area_type": application.area_type,
+        "state": application.state,
+        "social_category": application.social_category,
+        "employment_status": application.employment_status,
+        "has_disability": application.has_disability,
+        "disability_percentage": application.disability_percentage,
+        "disability_type": application.disability_type,
+        "aadhaar_linked": application.aadhaar_linked,
+        "bank_account": application.bank_account,
+    })
+
+    if application.prediction:
+        application.prediction.predicted_scheme = result["predicted_scheme"]
+        application.prediction.confidence_score = result["confidence_score"]
+        application.prediction.all_probabilities = json.dumps(result["all_probabilities"])
+        application.prediction.needs_review = result["needs_review"]
+        application.prediction.shap_values = (
+            json.dumps(result["shap_values"])
+            if result["shap_values"] else None
+        )
+    else:
+        prediction = Prediction(
+            application_id    = application.id,
+            predicted_scheme  = result["predicted_scheme"],
+            confidence_score  = result["confidence_score"],
+            all_probabilities = json.dumps(result["all_probabilities"]),
+            needs_review      = result["needs_review"],
+            shap_values       = json.dumps(result["shap_values"])
+                                if result["shap_values"] else None,
+        )
+        db.add(prediction)
+
+    application.status = (
+        AppStatus.AUTO_APPROVED
+        if not result["needs_review"]
+        else AppStatus.NEEDS_REVIEW
+    )
+    db.commit()
+
+    notify_status_change(
+        db          = db,
+        application = application,
+        new_status  = application.status,
+    )
+
     return {
-        "application_id":  application_id,
-        "results":         verification_results,
-        "all_verified":    summary["all_verified"],
-        "verified_count":  summary["verified_count"],
-        "failed_count":    summary["failed_count"],
+        "application_id":   application_id,
+        "status":           application.status,
+        "predicted_scheme": result["predicted_scheme"],
+        "scheme_full_name": result["scheme_full_name"],
+        "confidence_score": result["confidence_score"],
+        "needs_review":     result["needs_review"],
+        "results":          verification_results,
+        "all_verified":     True,
+        "verified_count":   summary["verified_count"],
+        "failed_count":     summary["failed_count"],
         "extracted_fields": summary["extracted_fields"],
-        "note": (
-            "Simulated verification — in production this connects "
-            "to authorized government APIs."
-        ),
+        "message":          "Documents verified. Application sent for officer review.",
     }
 
 
@@ -516,6 +596,72 @@ def get_application_detail(
         "prediction":            prediction_data,
         "documents":             documents_data,
         "decision":              decision_data,
+    }
+
+
+@router.put("/applications/{application_id}")
+def update_application(
+    application_id: str,
+    data:           ApplicationCreate,
+    current_user:   User    = Depends(require_citizen),
+    db:             Session = Depends(get_db),
+):
+    """
+    PUT /api/v1/citizen/applications/{application_id}
+
+    Update a citizen application before document upload/verification.
+    Edit is allowed only while status is pending and no documents exist.
+    """
+    app = db.query(Application).filter(
+        Application.id == application_id,
+        Application.citizen_id == current_user.id,
+    ).first()
+
+    if not app:
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail      = "Application not found.",
+        )
+
+    if app.status != AppStatus.PENDING:
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail      = "Only pending applications can be edited.",
+        )
+
+    has_documents = db.query(Document).filter(
+        Document.application_id == app.id
+    ).first() is not None
+
+    if has_documents or app.prediction:
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail      = "Application cannot be edited after document upload.",
+        )
+
+    app.age                   = data.age
+    app.gender                = data.gender
+    app.marital_status        = data.marital_status
+    app.annual_income         = data.annual_income
+    app.bpl_card              = data.bpl_card
+    app.area_type             = data.area_type
+    app.state                 = data.state
+    app.social_category       = data.social_category
+    app.employment_status     = data.employment_status
+    app.has_disability        = data.has_disability
+    app.disability_percentage = data.disability_percentage
+    app.disability_type       = data.disability_type
+    app.aadhaar_linked        = data.aadhaar_linked
+    app.bank_account          = data.bank_account
+
+    db.commit()
+    db.refresh(app)
+
+    return {
+        "application_id": app.id,
+        "status":         app.status,
+        "updated_at":     app.updated_at.isoformat(),
+        "message":        "Application updated successfully.",
     }
 
 

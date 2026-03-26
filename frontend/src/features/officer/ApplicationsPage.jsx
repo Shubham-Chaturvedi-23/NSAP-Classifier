@@ -78,7 +78,7 @@ export default function OfficerApplicationsPage() {
                       </span>
                     </td>
 
-                    <td>{fmtDate(a.created_at)}</td>
+                    <td>{fmtDate(a.submitted_at || a.created_at)}</td>
 
                     <td>{a.citizen_name || a.citizen_email || "—"}</td>
 
@@ -86,14 +86,16 @@ export default function OfficerApplicationsPage() {
                       <span style={{ fontWeight: 600 }}>
                         {SCHEME_LABELS[a?.prediction?.predicted_scheme] ||
                           a?.prediction?.predicted_scheme ||
+                          SCHEME_LABELS[a?.predicted_scheme] ||
+                          a?.predicted_scheme ||
                           "—"}
                       </span>
                     </td>
 
                     <td>
-                      {a?.prediction?.confidence_score != null
+                      {(a?.prediction?.confidence_score ?? a?.confidence_score) != null
                         ? `${Math.round(
-                            a.prediction.confidence_score * 100
+                            (a?.prediction?.confidence_score ?? a?.confidence_score) * 100
                           )}%`
                         : "—"}
                     </td>

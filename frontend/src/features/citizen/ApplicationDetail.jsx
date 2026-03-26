@@ -29,8 +29,8 @@ export default function CitizenApplicationDetail() {
     if (!file) return;
     setUploading((u) => ({ ...u, [docType]: true }));
     const fd = new FormData();
-    fd.append('file', file);
-    fd.append('doc_type', docType);
+    fd.append('files', file);
+    fd.append('declared_doc_type', docType);
     fd.append('application_id', id);
     try {
       await citizenApi.uploadDocument(fd);
@@ -47,7 +47,7 @@ export default function CitizenApplicationDetail() {
     setVerifying(true);
     try {
       await citizenApi.verifyDocuments({ application_id: id });
-      addToast('Verification started!', 'info');
+      addToast('Verification completed.', 'info');
       setTimeout(load, 2000);
     } catch (err) {
       addToast(err.response?.data?.detail || 'Verification failed.', 'error');
@@ -81,6 +81,13 @@ export default function CitizenApplicationDetail() {
           <div>
             <h2 style={{ fontSize: 18, fontWeight: 800 }}>Application #{id}</h2>
             <p style={{ color: 'var(--text2)', fontSize: 13, marginTop: 4 }}>Submitted: {fmtDateTime(app.created_at)}</p>
+            {app.status === 'pending' && uploadedDocs.length === 0 && (
+              <div style={{ marginTop: 8 }}>
+                <Link to={`/citizen/apply?id=${id}`} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }}>
+                  Edit Application
+                </Link>
+              </div>
+            )}
           </div>
           <span className={`badge ${STATUS_BADGE_MAP[app.status] || 'badge-pending'}`} style={{ fontSize: 13, padding: '6px 14px' }}>
             {getStatusLabel(app.status)}

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useAuth, useToast } from '../../app/providers';
+import { useTranslation } from 'react-i18next';
 import { authApi } from '../../api/auth.api';
 
 export default function ProfilePage() {
+  const { t } = useTranslation();
   const { user, refreshUser } = useAuth();
   const { addToast } = useToast();
   const [form, setForm] = useState({ name: user?.name || '', phone: user?.phone || '', address: user?.address || '', state: user?.state || '' });
@@ -16,9 +18,9 @@ export default function ProfilePage() {
     try {
       await authApi.updateMe(form);
       await refreshUser();
-      addToast('Profile updated!', 'success');
+      addToast(t('auth.profile_updated'), 'success');
     } catch {
-      addToast('Update failed.', 'error');
+      addToast(t('auth.update_failed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -27,8 +29,8 @@ export default function ProfilePage() {
   return (
     <div style={{ maxWidth: 560 }}>
       <div className="page-header">
-        <h1>My Profile</h1>
-        <p>Manage your account details</p>
+        <h1>{t('auth.profile_title')}</h1>
+        <p>{t('auth.profile_sub')}</p>
       </div>
 
       <div className="card">
@@ -46,17 +48,17 @@ export default function ProfilePage() {
         <form onSubmit={handleSubmit}>
           <div className="grid-2">
             <div className="form-group">
-              <label>Full Name</label>
-              <input value={form.name} onChange={set('name')} placeholder="Your name" />
+              <label>{t('auth.full_name')}</label>
+              <input value={form.name} onChange={set('name')} placeholder={t('auth.your_name')} />
             </div>
             <div className="form-group">
-              <label>Phone</label>
-              <input value={form.phone} onChange={set('phone')} placeholder="+91 XXXXX XXXXX" />
+              <label>{t('auth.phone')}</label>
+              <input value={form.phone} onChange={set('phone')} placeholder={t('auth.phone_format')} />
             </div>
           </div>
           <div className="form-group">
-            <label>State</label>
-            <input value={form.state} onChange={set('state')} placeholder="Your state" />
+            <label>{t('auth.state')}</label>
+            <input value={form.state} onChange={set('state')} placeholder={t('auth.your_state')} />
           </div>
           <div className="form-group">
             <label>Address</label>

@@ -132,7 +132,9 @@ def get_all_applications(
     Returns:
         dict: Paginated application list.
     """
-    query = db.query(Application)
+    # Officers should only see applications that have completed
+    # document verification and ML prediction.
+    query = db.query(Application).join(Prediction)
 
     if status_filter:
         query = query.filter(Application.status == status_filter)
@@ -213,6 +215,12 @@ def get_application_detail(
         raise HTTPException(
             status_code = status.HTTP_404_NOT_FOUND,
             detail      = "Application not found.",
+        )
+
+    if not app.prediction:
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail      = "Application is not ready for officer review.",
         )
 
     # Build prediction with SHAP explanation

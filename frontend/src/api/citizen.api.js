@@ -2,6 +2,7 @@ import client from './client';
 
 export const citizenApi = {
   apply: (data) => client.post('/citizen/apply', data),
+  updateApplication: (id, data) => client.put(`/citizen/applications/${id}`, data),
   getApplications: (params) => client.get('/citizen/applications', { params }),
   getApplication: (id) => client.get(`/citizen/applications/${id}`),
   uploadDocument: (formData) =>

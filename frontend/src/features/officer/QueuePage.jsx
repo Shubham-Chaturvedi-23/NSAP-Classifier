@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { officerApi } from "../../api/officer.api";
+import { useToast } from "../../app/providers";
 import { fmtDate, getStatusLabel } from "../../utils/formatters";
 import { STATUS_BADGE_MAP, SCHEME_LABELS } from "../../utils/constants";
 
 export default function OfficerQueuePage() {
+  const { addToast } = useToast();
   const [queue, setQueue] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedOtherIds, setSelectedOtherIds] = useState([]);
+  const [bulkApproving, setBulkApproving] = useState(false);
 
-  useEffect(() => {
+  const loadQueue = () => {
+    setLoading(true);
     Promise.all([
       officerApi.getQueue({ limit: 20, offset: 0 }),
       officerApi.getStats(),
@@ -20,18 +25,24 @@ export default function OfficerQueuePage() {
         let list = [];
 
         if (Array.isArray(data)) list = data;
+        else if (Array.isArray(data?.queue)) list = data.queue;
         else if (Array.isArray(data?.applications)) list = data.applications;
         else if (Array.isArray(data?.items)) list = data.items;
         else if (Array.isArray(data?.data)) list = data.data;
 
         setQueue(list);
         setStats(s?.data || null);
+        setSelectedOtherIds([]);
       })
       .catch(() => {
         setQueue([]);
         setStats(null);
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadQueue();
   }, []);
 
   const safeQueue = Array.isArray(queue) ? queue : [];
@@ -40,9 +51,55 @@ export default function OfficerQueuePage() {
     (a) => a?.prediction?.needs_review || a?.status === "needs_review"
   );
 
-  const others = safeQueue.filter(
-    (a) => !(a?.prediction?.needs_review || a?.status === "needs_review")
-  );
+  const autoApproved = safeQueue.filter((a) => a?.status === "auto_approved");
+
+  const toggleOtherSelection = (id) => {
+    setSelectedOtherIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllOthers = () => {
+    setSelectedOtherIds(autoApproved.map((a) => a.id));
+  };
+
+  const clearOtherSelection = () => {
+    setSelectedOtherIds([]);
+  };
+
+  const approveSelectedOthers = async () => {
+    if (!selectedOtherIds.length) {
+      addToast("Select at least one application first.", "info");
+      return;
+    }
+
+    setBulkApproving(true);
+    try {
+      const results = await Promise.allSettled(
+        selectedOtherIds.map((id) =>
+          officerApi.decide(id, {
+            application_id: id,
+            decision: "approved",
+            remarks: "Bulk approved from officer review queue.",
+          })
+        )
+      );
+
+      const successCount = results.filter((r) => r.status === "fulfilled").length;
+      const failCount = results.length - successCount;
+
+      if (successCount > 0) {
+        addToast(`${successCount} application(s) approved.`, "success");
+      }
+      if (failCount > 0) {
+        addToast(`${failCount} application(s) could not be approved.`, "error");
+      }
+
+      loadQueue();
+    } finally {
+      setBulkApproving(false);
+    }
+  };
 
   if (loading)
     return (
@@ -63,16 +120,16 @@ export default function OfficerQueuePage() {
           {[
             {
               label: "Total Assigned",
-              value: stats.total_assigned ?? stats.total ?? "—",
+              value: stats.queue?.total_pending ?? stats.total ?? "—",
               icon: "📋",
             },
             {
               label: "Pending Review",
-              value: stats.pending_review ?? stats.pending ?? "—",
+              value: stats.queue?.needs_review ?? stats.pending ?? "—",
               icon: "⏳",
             },
-            { label: "Approved", value: stats.approved ?? "—", icon: "✅" },
-            { label: "Rejected", value: stats.rejected ?? "—", icon: "❌" },
+            { label: "Approved", value: stats.my_decisions?.approved ?? "—", icon: "✅" },
+            { label: "Rejected", value: stats.my_decisions?.rejected ?? "—", icon: "❌" },
           ].map((s) => (
             <div key={s.label} className="card stat-card">
               <div className="label">
@@ -123,27 +180,45 @@ export default function OfficerQueuePage() {
             marginBottom: 12,
           }}
         >
-          Other Pending Applications{" "}
-          {others.length > 0 && `(${others.length})`}
+          Auto Approved Applications{" "}
+          {autoApproved.length > 0 && `(${autoApproved.length})`}
         </div>
 
-        {others.length === 0 && needsReview.length === 0 ? (
+        {autoApproved.length === 0 && needsReview.length === 0 ? (
           <div className="empty-state card">
             <div className="icon">🎉</div>
             <h3>Queue is empty</h3>
             <p>All applications have been processed</p>
           </div>
-        ) : others.length > 0 ? (
-          <div className="card" style={{ padding: 0 }}>
-            <AppTable rows={others} />
-          </div>
+        ) : autoApproved.length > 0 ? (
+          <>
+            <div className="card" style={{ marginBottom: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button className="btn btn-secondary" onClick={selectAllOthers} disabled={bulkApproving}>
+                Select All
+              </button>
+              <button className="btn btn-secondary" onClick={clearOtherSelection} disabled={bulkApproving || !selectedOtherIds.length}>
+                Clear Selection
+              </button>
+              <button className="btn btn-success" onClick={approveSelectedOthers} disabled={bulkApproving || !selectedOtherIds.length}>
+                {bulkApproving ? "Approving..." : `Approve Selected (${selectedOtherIds.length})`}
+              </button>
+            </div>
+            <div className="card" style={{ padding: 0 }}>
+              <AppTable
+                rows={autoApproved}
+                selectable
+                selectedIds={selectedOtherIds}
+                onToggleSelect={toggleOtherSelection}
+              />
+            </div>
+          </>
         ) : null}
       </div>
     </div>
   );
 }
 
-function AppTable({ rows, highlight }) {
+function AppTable({ rows, highlight, selectable = false, selectedIds = [], onToggleSelect }) {
   const safeRows = Array.isArray(rows) ? rows : [];
 
   return (
@@ -151,6 +226,7 @@ function AppTable({ rows, highlight }) {
       <table>
         <thead>
           <tr>
+            {selectable && <th>Select</th>}
             <th>App ID</th>
             <th>Submitted</th>
             <th>Predicted Scheme</th>
@@ -166,6 +242,15 @@ function AppTable({ rows, highlight }) {
               key={a.id}
               style={highlight ? { background: "rgba(210,153,34,0.04)" } : {}}
             >
+              {selectable && (
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(a.id)}
+                    onChange={() => onToggleSelect?.(a.id)}
+                  />
+                </td>
+              )}
               <td>
                 <span
                   style={{
@@ -178,19 +263,21 @@ function AppTable({ rows, highlight }) {
                 </span>
               </td>
 
-              <td>{fmtDate(a.created_at)}</td>
+              <td>{fmtDate(a.submitted_at || a.created_at)}</td>
 
               <td>
                 <span style={{ fontWeight: 600 }}>
                   {SCHEME_LABELS[a?.prediction?.predicted_scheme] ||
                     a?.prediction?.predicted_scheme ||
+                    SCHEME_LABELS[a?.predicted_scheme] ||
+                    a?.predicted_scheme ||
                     "—"}
                 </span>
               </td>
 
               <td>
-                {a?.prediction?.confidence_score != null
-                  ? `${Math.round(a.prediction.confidence_score * 100)}%`
+                {(a?.prediction?.confidence_score ?? a?.confidence_score) != null
+                  ? `${Math.round((a?.prediction?.confidence_score ?? a?.confidence_score) * 100)}%`
                   : "—"}
               </td>
 
