@@ -36,56 +36,120 @@ role-based access for Citizens, Officers and Admins.
 
 ## Project Structure
 ```
-NSAP CLASSIFIER/
+NSAP-Classifier/
 │
-├── backend/                         ← FastAPI backend
+├── backend/                          # FastAPI backend service
 │   ├── api/
-│   │   ├── app.py                   ← FastAPI entry point + lifespan
-│   │   ├── config.py                ← all constants, settings, mock data
+│   │   ├── app.py                    # FastAPI entry point & lifespan events
+│   │   ├── config.py                 # Environment settings & constants
 │   │   ├── __init__.py
 │   │   │
-│   │   ├── routes/
-│   │   │   ├── auth.py              ← register, login, JWT
-│   │   │   ├── citizen.py           ← apply, upload docs, track status
-│   │   │   ├── officer.py           ← review queue, decisions
-│   │   │   ├── admin.py             ← dashboard, model metrics
-│   │   │   └── health.py            ← health check
+│   │   ├── routes/                   # API route modules
+│   │   │   ├── auth.py               # Authentication (login / register / JWT)
+│   │   │   ├── citizen.py            # Application submission & document upload
+│   │   │   ├── officer.py            # Review queue & decision endpoints
+│   │   │   ├── admin.py              # Admin dashboard & user management
+│   │   │   └── health.py             # Health check endpoint
 │   │   │
-│   │   ├── services/
-│   │   │   ├── prediction.py        ← CatBoost inference + SHAP
-│   │   │   ├── ocr.py               ← Tesseract OCR extraction
-│   │   │   ├── verification.py      ← mock govt portal verification
-│   │   │   ├── storage.py           ← Cloudinary document storage
-│   │   │   └── notification.py      ← citizen status notifications
+│   │   ├── services/                 # Business logic layer
+│   │   │   ├── prediction.py         # CatBoost inference & SHAP explanation
+│   │   │   ├── ocr.py                # OCR extraction using Tesseract
+│   │   │   ├── verification.py       # Mock government verification service
+│   │   │   ├── storage.py            # Cloudinary document storage integration
+│   │   │   └── notification.py       # Citizen notification utilities
 │   │   │
-│   │   ├── models/
-│   │   │   ├── database.py          ← SQLAlchemy session setup
-│   │   │   ├── entities.py          ← DB table definitions (6 tables)
-│   │   │   └── schemas.py           ← Pydantic request/response models
+│   │   ├── models/                   # Database & schema layer
+│   │   │   ├── database.py           # SQLAlchemy engine & session setup
+│   │   │   ├── entities.py           # ORM table definitions
+│   │   │   └── schemas.py            # Pydantic request/response models
 │   │   │
-│   │   └── ml_models/               ← trained model artifacts (not in git)
+│   │   └── ml_models/                # Trained ML artifacts (gitignored)
 │   │       ├── nsap_catboost_model.cbm
 │   │       ├── nsap_label_encoder.pkl
 │   │       └── nsap_feature_columns.pkl
 │   │
-│   ├── uploads/                     ← temp OCR uploads (gitignored)
-│   ├── .env                         ← credentials (gitignored)
-│   ├── .env.example                 ← template for .env
-│   ├── requirements.txt
-│   └── run.py                       ← start the API server
+│   ├── uploads/                      # Temporary OCR uploads (gitignored)
+│   ├── .env                          # Environment variables (gitignored)
+│   ├── .env.example                  # Sample env template
+│   ├── requirements.txt              # Backend dependencies
+│   └── run.py                        # API server launcher
 │
-├── frontend/                        ← React frontend (to be built)
+├── frontend/                         # React frontend application
+│   ├── public/
+│   │   └── index.html
+│   │
+│   ├── src/
+│   │   ├── api/                      # Axios API abstraction layer
+│   │   │   ├── client.js             # Axios instance + JWT interceptor
+│   │   │   ├── auth.api.js
+│   │   │   ├── citizen.api.js
+│   │   │   ├── officer.api.js
+│   │   │   └── admin.api.js
+│   │   │
+│   │   ├── app/
+│   │   │   ├── router.jsx            # Application routes & role guards
+│   │   │   └── providers.jsx         # Auth context & global providers
+│   │   │
+│   │   ├── components/
+│   │   │   ├── layout/
+│   │   │   │   ├── AppLayout.jsx     # Sidebar + header layout
+│   │   │   │   └── AppLayout.css
+│   │   │   │
+│   │   │   └── feedback/
+│   │   │       ├── ErrorBoundary.jsx # Global runtime error handler
+│   │   │       ├── LangSwitcher.jsx  # Language switch UI
+│   │   │       └── index.jsx
+│   │   │
+│   │   ├── features/
+│   │   │   ├── auth/
+│   │   │   │   ├── LoginPage.jsx
+│   │   │   │   ├── RegisterPage.jsx
+│   │   │   │   └── ProfilePage.jsx
+│   │   │   │
+│   │   │   ├── citizen/
+│   │   │   │   ├── ApplicationsPage.jsx
+│   │   │   │   ├── ApplyPage.jsx
+│   │   │   │   ├── ApplicationDetail.jsx
+│   │   │   │   └── NotificationsPage.jsx
+│   │   │   │
+│   │   │   ├── officer/
+│   │   │   │   ├── QueuePage.jsx
+│   │   │   │   ├── ReviewPage.jsx
+│   │   │   │   └── ApplicationsPage.jsx
+│   │   │   │
+│   │   │   └── admin/
+│   │   │       ├── DashboardPage.jsx
+│   │   │       ├── ApplicationsPage.jsx
+│   │   │       ├── UsersPage.jsx
+│   │   │       └── ModelPage.jsx
+│   │   │
+│   │   ├── styles/
+│   │   │   └── globals.css           # Global theme & layout styles
+│   │   │
+│   │   ├── utils/
+│   │   │   ├── constants.js
+│   │   │   ├── formatters.js
+│   │   │   ├── guards.js
+│   │   │   ├── i18n.js
+│   │   │   └── useApi.js
+│   │   │
+│   │   ├── main.jsx                  # React entry point
+│   │   └── App.jsx
+│   │
+│   ├── package.json
+│   └── vite.config.js
 │
-├── ml/                              ← ML training and analysis
-│   ├── NSAP_train.ipynb             ← training pipeline (Google Colab)
-│   ├── dataset_generator.py         ← synthetic dataset generator
-│   ├── fairness_report.csv          ← per-demographic fairness metrics
-│   ├── model_comparison.csv         ← model comparison metrics
-│   └── output/                      ← generated plots and charts
+├── ml/                               # Model training & evaluation assets
+│   ├── NSAP_train.ipynb
+│   ├── dataset_generator.py
+│   ├── fairness_report.csv
+│   ├── model_comparison.csv
+│   └── output/
 │
 ├── sample_data/
-│   └── sample_5_records.csv         ← 5 sample applicants for testing
+│   └── sample_5_records.csv
 │
+├── .gitignore
 └── README.md
 ```
 
