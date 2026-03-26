@@ -286,7 +286,7 @@ def get_model_metrics(
         )
 
     metrics = []
-    with open(MODEL_COMPARISON_CSV, "r") as f:
+    with open(MODEL_COMPARISON_CSV, "r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for row in reader:
             metrics.append({
@@ -345,7 +345,7 @@ def get_fairness_report(
     entries    = []
     flagged    = []
 
-    with open(FAIRNESS_REPORT_CSV, "r") as f:
+    with open(FAIRNESS_REPORT_CSV, "r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for row in reader:
             entry = {

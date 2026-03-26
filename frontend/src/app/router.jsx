@@ -66,6 +66,7 @@ export default function AppRouter() {
         {/* Officer */}
         <Route path="/officer/queue"             element={<RequireAuth roles={[ROLES.OFFICER]}><OfficerQueuePage /></RequireAuth>} />
         <Route path="/officer/applications"      element={<RequireAuth roles={[ROLES.OFFICER]}><OfficerApplicationsPage /></RequireAuth>} />
+        <Route path="/officer/applications/:id/view"  element={<RequireAuth roles={[ROLES.OFFICER]}><OfficerReviewPage /></RequireAuth>} />
         <Route path="/officer/applications/:id"  element={<RequireAuth roles={[ROLES.OFFICER]}><OfficerReviewPage /></RequireAuth>} />
 
         {/* Admin */}

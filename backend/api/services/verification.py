@@ -12,6 +12,7 @@ Description: Mock government portal verification service.
 """
 
 import json
+import re
 from datetime import datetime
 
 from api.config import (
@@ -20,6 +21,41 @@ from api.config import (
     INVALID_CERTIFICATES, DocType,
     VerificationStatus,
 )
+
+
+def _normalize_aadhaar(cert_number: str) -> str:
+    """Normalize Aadhaar to XXXX-XXXX-XXXX when possible."""
+    if not cert_number:
+        return cert_number
+
+    digits = re.sub(r"\D", "", cert_number)
+    if len(digits) == 12:
+        return f"{digits[0:4]}-{digits[4:8]}-{digits[8:12]}"
+
+    return cert_number.strip().replace(" ", "-")
+
+
+def _canonical_cert(cert_number: str) -> str:
+    """Canonicalize registry-like certs: collapse separators and uppercase."""
+    if not cert_number:
+        return cert_number
+
+    return re.sub(r"[^A-Z0-9]+", "/", cert_number.upper()).strip("/")
+
+
+def _lookup_canonical(mapping: dict, cert_number: str):
+    """Find value in mapping using canonicalized key comparison."""
+    target = _canonical_cert(cert_number)
+    for key, value in mapping.items():
+        if _canonical_cert(key) == target:
+            return key, value
+    return None, None
+
+
+def _is_invalid_certificate(cert_number: str) -> bool:
+    """Check invalid-certificate list with canonicalized comparison."""
+    target = _canonical_cert(cert_number)
+    return any(_canonical_cert(c) == target for c in INVALID_CERTIFICATES)
 
 
 # ─── Verification Result Builder ──────────────────────────────
@@ -79,10 +115,10 @@ def verify_aadhaar(cert_number: str) -> dict:
         )
 
     # Normalize format — ensure XXXX-XXXX-XXXX
-    normalized = cert_number.strip().replace(" ", "-")
+    normalized = _normalize_aadhaar(cert_number)
 
     # Check against known invalid certificates
-    if normalized in INVALID_CERTIFICATES:
+    if _is_invalid_certificate(normalized):
         return _build_result(
             status      = VerificationStatus.FAILED,
             doc_type    = DocType.AADHAAR,
@@ -91,12 +127,12 @@ def verify_aadhaar(cert_number: str) -> dict:
         )
 
     # Check against valid Aadhaar database
-    if normalized in VALID_AADHAAR:
-        data = VALID_AADHAAR[normalized]
+    matched_key, data = _lookup_canonical(VALID_AADHAAR, normalized)
+    if data:
         return _build_result(
             status      = VerificationStatus.VERIFIED,
             doc_type    = DocType.AADHAAR,
-            cert_number = normalized,
+            cert_number = matched_key,
             data        = data,
             message     = (
                 f"Aadhaar verified for {data['name']} "
@@ -131,9 +167,9 @@ def verify_bpl_card(cert_number: str) -> dict:
             message     = "No BPL card number found in document."
         )
 
-    normalized = cert_number.strip().upper()
+    normalized = _canonical_cert(cert_number)
 
-    if normalized in INVALID_CERTIFICATES:
+    if _is_invalid_certificate(normalized):
         return _build_result(
             status      = VerificationStatus.FAILED,
             doc_type    = DocType.BPL_CARD,
@@ -141,12 +177,12 @@ def verify_bpl_card(cert_number: str) -> dict:
             message     = "BPL card number flagged as invalid."
         )
 
-    if normalized in VALID_BPL:
-        data = VALID_BPL[normalized]
+    matched_key, data = _lookup_canonical(VALID_BPL, normalized)
+    if data:
         return _build_result(
             status      = VerificationStatus.VERIFIED,
             doc_type    = DocType.BPL_CARD,
-            cert_number = normalized,
+            cert_number = matched_key,
             data        = data,
             message     = (
                 f"BPL card verified for {data['holder']} "
@@ -181,9 +217,9 @@ def verify_disability_certificate(cert_number: str) -> dict:
             message     = "No disability certificate number found in document."
         )
 
-    normalized = cert_number.strip().upper()
+    normalized = _canonical_cert(cert_number)
 
-    if normalized in INVALID_CERTIFICATES:
+    if _is_invalid_certificate(normalized):
         return _build_result(
             status      = VerificationStatus.FAILED,
             doc_type    = DocType.DISABILITY,
@@ -191,12 +227,12 @@ def verify_disability_certificate(cert_number: str) -> dict:
             message     = "Disability certificate flagged as invalid."
         )
 
-    if normalized in VALID_DISABILITY:
-        data = VALID_DISABILITY[normalized]
+    matched_key, data = _lookup_canonical(VALID_DISABILITY, normalized)
+    if data:
         return _build_result(
             status      = VerificationStatus.VERIFIED,
             doc_type    = DocType.DISABILITY,
-            cert_number = normalized,
+            cert_number = matched_key,
             data        = data,
             message     = (
                 f"Disability certificate verified — "
@@ -231,9 +267,9 @@ def verify_death_certificate(cert_number: str) -> dict:
             message     = "No death certificate number found in document."
         )
 
-    normalized = cert_number.strip().upper()
+    normalized = _canonical_cert(cert_number)
 
-    if normalized in INVALID_CERTIFICATES:
+    if _is_invalid_certificate(normalized):
         return _build_result(
             status      = VerificationStatus.FAILED,
             doc_type    = DocType.DEATH_CERT,
@@ -241,12 +277,12 @@ def verify_death_certificate(cert_number: str) -> dict:
             message     = "Death certificate flagged as invalid."
         )
 
-    if normalized in VALID_DEATH_CERT:
-        data = VALID_DEATH_CERT[normalized]
+    matched_key, data = _lookup_canonical(VALID_DEATH_CERT, normalized)
+    if data:
         return _build_result(
             status      = VerificationStatus.VERIFIED,
             doc_type    = DocType.DEATH_CERT,
-            cert_number = normalized,
+            cert_number = matched_key,
             data        = data,
             message     = (
                 f"Death certificate verified — "

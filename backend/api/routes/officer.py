@@ -25,6 +25,7 @@ from api.models.entities import Application, Decision, Prediction, User
 from api.models.schemas import DecisionCreate, DecisionResponse
 from api.routes.auth import require_officer
 from api.services.notification import notify_status_change
+from api.services.prediction import run_prediction
 from api.config import AppStatus, SCHEME_LABELS, SCHEME_LABELS_HI
 
 router = APIRouter(prefix="/officer", tags=["Officer"])
@@ -223,6 +224,32 @@ def get_application_detail(
             detail      = "Application is not ready for officer review.",
         )
 
+    # Backfill SHAP values for older predictions that were saved without it.
+    if not app.prediction.shap_values:
+        try:
+            backfill = run_prediction({
+                "age": app.age,
+                "gender": app.gender,
+                "marital_status": app.marital_status,
+                "annual_income": app.annual_income,
+                "bpl_card": app.bpl_card,
+                "area_type": app.area_type,
+                "state": app.state,
+                "social_category": app.social_category,
+                "employment_status": app.employment_status,
+                "has_disability": app.has_disability,
+                "disability_percentage": app.disability_percentage,
+                "disability_type": app.disability_type,
+                "aadhaar_linked": app.aadhaar_linked,
+                "bank_account": app.bank_account,
+            })
+            if backfill.get("shap_values"):
+                app.prediction.shap_values = json.dumps(backfill["shap_values"])
+                db.commit()
+                db.refresh(app.prediction)
+        except Exception:
+            pass
+
     # Build prediction with SHAP explanation
     prediction_data = None
     if app.prediction:
@@ -364,18 +391,26 @@ def make_decision(
             detail      = f"Cannot decide application with status: {app.status}",
         )
 
+    # Resolve final decision from final scheme selection.
+    # NOT_ELIGIBLE always means rejection; any payable scheme means approval.
+    resolved_decision = data.decision
+    if data.override_scheme == "NOT_ELIGIBLE":
+        resolved_decision = "rejected"
+    elif data.override_scheme in {"OAP", "WP", "DP"}:
+        resolved_decision = "approved"
+
     # Step 2 — Create Decision record
     decision = Decision(
         application_id  = application_id,
         officer_id      = current_user.id,
-        decision        = data.decision,
+        decision        = resolved_decision,
         remarks         = data.remarks,
         override_scheme = data.override_scheme,
     )
     db.add(decision)
 
     # Step 3 — Update Application status
-    app.status     = data.decision        # approved or rejected
+    app.status     = resolved_decision
     app.officer_id = current_user.id
     db.commit()
     db.refresh(decision)
@@ -384,7 +419,7 @@ def make_decision(
     notify_status_change(
         db          = db,
         application = app,
-        new_status  = data.decision,
+        new_status  = resolved_decision,
         remarks     = data.remarks,
     )
 

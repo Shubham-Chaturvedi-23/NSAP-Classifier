@@ -30,7 +30,7 @@ catboost==1.2.10             # latest stable (2026-02-18) | explicit py3.13 whee
 scikit-learn==1.8.0          # latest stable | py3.13 compatible
 pandas==2.2.3                # latest stable | py3.13 compatible
 numpy==2.4.3                 # latest stable (2026-03-09) | required for opencv 4.13+
-#shap==0.45.1                 # SHAP explainability — used in prediction service
+shap==0.45.1                 # SHAP explainability — used in prediction service
 
 # ── Training / Experimentation (notebook only) ────────────────
 #xgboost==2.0.3               # baseline model comparison

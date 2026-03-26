@@ -231,6 +231,13 @@ VALID_AADHAAR = {
         "state":    "Madhya Pradesh",
         "area_type": "Rural"
     },
+    "7138-3410-7816": {
+        "name":     "Shubham Chaturvedi",
+        "age":      68,
+        "gender":   "Male",
+        "state":    "Uttar Pradesh",
+        "area_type": "Rural"
+    },
 }
 
 VALID_BPL = {

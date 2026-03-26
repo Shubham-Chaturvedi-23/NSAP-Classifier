@@ -5,6 +5,18 @@ import { useToast } from '../../app/providers';
 import { fmtDateTime, getStatusLabel, getRequiredDocuments } from '../../utils/formatters';
 import { STATUS_BADGE_MAP, SCHEME_LABELS, DOC_LABELS } from '../../utils/constants';
 
+const renderValue = (value) => {
+  if (value == null || value === '') return '—';
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '—';
+    }
+  }
+  return String(value);
+};
+
 export default function CitizenApplicationDetail() {
   const { id } = useParams();
   const { addToast } = useToast();
@@ -12,6 +24,7 @@ export default function CitizenApplicationDetail() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState({});
   const [verifying, setVerifying] = useState(false);
+  const [verifyReport, setVerifyReport] = useState(null);
   const fileRefs = useRef({});
 
   const load = () => {
@@ -33,8 +46,14 @@ export default function CitizenApplicationDetail() {
     fd.append('declared_doc_type', docType);
     fd.append('application_id', id);
     try {
-      await citizenApi.uploadDocument(fd);
+      const res = await citizenApi.uploadDocument(fd);
       addToast(`${DOC_LABELS[docType]} uploaded!`, 'success');
+      
+      // Log OCR debug info to browser console for troubleshooting
+      if (res?.data?.documents?.[0]?.ocr_debug) {
+        console.log(`[OCR Debug - ${docType}]:`, res.data.documents[0].ocr_debug);
+      }
+      
       load();
     } catch (err) {
       addToast(err.response?.data?.detail || 'Upload failed.', 'error');
@@ -46,8 +65,24 @@ export default function CitizenApplicationDetail() {
   const handleVerify = async () => {
     setVerifying(true);
     try {
-      await citizenApi.verifyDocuments({ application_id: id });
-      addToast('Verification completed.', 'info');
+      const res = await citizenApi.verifyDocuments({ application_id: id });
+      const report = res?.data || null;
+      setVerifyReport(report);
+
+      if (report?.all_verified) {
+        addToast('Verification completed.', 'success');
+      } else if (Array.isArray(report?.results)) {
+        const failed = report.results.filter((r) => r.status !== 'verified');
+        addToast(
+          failed.length
+            ? `Verification failed for: ${failed.map((f) => DOC_LABELS[f.doc_type] || f.doc_type).join(', ')}`
+            : (report?.message || 'Verification failed.'),
+          'error'
+        );
+      } else {
+        addToast(report?.message || 'Verification failed.', 'error');
+      }
+
       setTimeout(load, 2000);
     } catch (err) {
       addToast(err.response?.data?.detail || 'Verification failed.', 'error');
@@ -66,6 +101,9 @@ export default function CitizenApplicationDetail() {
   uploadedDocs.forEach((d) => { docMap[d.doc_type] = d; });
   const allVerified = requiredDocs.every((k) => docMap[k]?.verification_status === 'verified');
   const allUploaded = requiredDocs.every((k) => !!docMap[k]);
+  const missingDocs = requiredDocs.filter((k) => !docMap[k]);
+  const canEdit = app.status === 'pending' && uploadedDocs.length === 0 && !app.prediction && !app.decision;
+  const canRunVerify = app.status === 'pending' && allUploaded && !allVerified;
 
   return (
     <div style={{ maxWidth: 820 }}>
@@ -80,13 +118,18 @@ export default function CitizenApplicationDetail() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h2 style={{ fontSize: 18, fontWeight: 800 }}>Application #{id}</h2>
-            <p style={{ color: 'var(--text2)', fontSize: 13, marginTop: 4 }}>Submitted: {fmtDateTime(app.created_at)}</p>
-            {app.status === 'pending' && uploadedDocs.length === 0 && (
+            <p style={{ color: 'var(--text2)', fontSize: 13, marginTop: 4 }}>Submitted: {fmtDateTime(app.submitted_at || app.created_at)}</p>
+            {canEdit && (
               <div style={{ marginTop: 8 }}>
                 <Link to={`/citizen/apply?id=${id}`} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }}>
                   Edit Application
                 </Link>
               </div>
+            )}
+            {!canEdit && app.status === 'pending' && (
+              <p style={{ color: 'var(--text2)', fontSize: 12, marginTop: 8 }}>
+                Editing is available only before the first document upload.
+              </p>
             )}
           </div>
           <span className={`badge ${STATUS_BADGE_MAP[app.status] || 'badge-pending'}`} style={{ fontSize: 13, padding: '6px 14px' }}>
@@ -94,6 +137,21 @@ export default function CitizenApplicationDetail() {
           </span>
         </div>
       </div>
+
+      {/* Applicant Profile */}
+      {app.applicant && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Applicant Profile</h3>
+          <div className="grid-3" style={{ gap: 8 }}>
+            {Object.entries(app.applicant).map(([k, v]) => (
+              <div key={k} style={{ padding: '10px 12px', background: 'var(--bg3)', borderRadius: 6 }}>
+                <div style={{ fontSize: 11, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{k.replace(/_/g, ' ')}</div>
+                <div style={{ fontWeight: 600, fontSize: 14, marginTop: 2 }}>{renderValue(v)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Prediction */}
       {app.prediction && (
@@ -148,18 +206,31 @@ export default function CitizenApplicationDetail() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Required Documents</h3>
-          {allUploaded && !allVerified && (
-            <button className="btn btn-info" style={{ padding: '6px 14px', fontSize: 13 }} onClick={handleVerify} disabled={verifying}>
+          {!allVerified && app.status === 'pending' && (
+            <button
+              className="btn btn-info"
+              style={{ padding: '6px 14px', fontSize: 13 }}
+              onClick={handleVerify}
+              disabled={!canRunVerify || verifying}
+              title={!allUploaded ? `Upload required documents first: ${missingDocs.map((d) => DOC_LABELS[d]).join(', ')}` : ''}
+            >
               {verifying ? 'Verifying…' : '🔍 Run Verification'}
             </button>
           )}
           {allVerified && <span className="badge badge-approved">✅ All Verified</span>}
         </div>
 
+        {!allUploaded && app.status === 'pending' && (
+          <div className="alert alert-info" style={{ marginBottom: 12 }}>
+            Upload remaining documents to continue: {missingDocs.map((d) => DOC_LABELS[d]).join(', ')}.
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {requiredDocs.map((docType) => {
             const uploaded = docMap[docType];
             const status = uploaded?.verification_status || null;
+            const canReplace = app.status === 'pending' && status !== 'verified';
             return (
               <div key={docType} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -175,7 +246,7 @@ export default function CitizenApplicationDetail() {
                       {status}
                     </span>
                   )}
-                  {!uploaded || status === 'failed' ? (
+                  {canReplace ? (
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <input
                         type="file" accept=".pdf,.jpg,.jpeg,.png"
@@ -187,7 +258,7 @@ export default function CitizenApplicationDetail() {
                         onClick={() => handleUpload(docType)}
                         disabled={uploading[docType]}
                       >
-                        {uploading[docType] ? 'Uploading…' : '⬆️ Upload'}
+                        {uploading[docType] ? 'Uploading…' : uploaded ? '♻️ Replace' : '⬆️ Upload'}
                       </button>
                     </div>
                   ) : null}
@@ -202,16 +273,50 @@ export default function CitizenApplicationDetail() {
             ✅ All documents verified. Your application is ready for officer review.
           </div>
         )}
+
+        {verifyReport && Array.isArray(verifyReport.results) && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+              Latest Verification Report
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {verifyReport.results.map((r) => {
+                const ok = r.status === 'verified';
+                return (
+                  <div
+                    key={`${r.doc_type}-${r.document_id || r.certificate_number || Math.random()}`}
+                    style={{
+                      border: `1px solid ${ok ? 'var(--success)' : 'var(--danger)'}`,
+                      background: ok ? 'rgba(29,185,84,0.08)' : 'rgba(229,57,53,0.08)',
+                      borderRadius: 8,
+                      padding: '10px 12px'
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>
+                      {DOC_LABELS[r.doc_type] || r.doc_type} - {ok ? 'Verified' : 'Failed'}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)' }}>{r.message || 'No details provided.'}</div>
+                    {r.certificate_number && (
+                      <div style={{ fontSize: 12, marginTop: 4 }}>
+                        Certificate: <span style={{ fontFamily: 'var(--mono)' }}>{r.certificate_number}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Form Data */}
       <div className="card">
         <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>Application Data</h3>
         <div className="grid-3" style={{ gap: 8 }}>
-          {Object.entries(formData).filter(([k]) => !['id','status','created_at','updated_at','prediction','decision','documents','form_data'].includes(k)).map(([k, v]) => (
+          {Object.entries(formData).filter(([k]) => !['id','status','created_at','updated_at','prediction','decision','documents','form_data','applicant'].includes(k)).map(([k, v]) => (
             <div key={k} style={{ padding: '10px 12px', background: 'var(--bg3)', borderRadius: 6 }}>
               <div style={{ fontSize: 11, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{k.replace(/_/g, ' ')}</div>
-              <div style={{ fontWeight: 600, fontSize: 14, marginTop: 2 }}>{String(v)}</div>
+              <div style={{ fontWeight: 600, fontSize: 14, marginTop: 2 }}>{renderValue(v)}</div>
             </div>
           ))}
         </div>

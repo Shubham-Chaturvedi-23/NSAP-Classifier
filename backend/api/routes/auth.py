@@ -20,6 +20,7 @@ from api.models.entities import User
 from api.models.schemas import (
     UserRegister, UserLogin,
     UserResponse, TokenResponse,
+    UserProfileUpdate,
 )
 from api.config import (
     SECRET_KEY, JWT_ALGORITHM,
@@ -338,10 +339,7 @@ def get_me(current_user: User = Depends(get_current_user)):
 
 @router.put("/me", response_model=UserResponse)
 def update_profile(
-    name:    Optional[str] = None,
-    phone:   Optional[str] = None,
-    address: Optional[str] = None,
-    state:   Optional[str] = None,
+    data: UserProfileUpdate,
     current_user: User    = Depends(get_current_user),
     db:      Session       = Depends(get_db),
 ):
@@ -354,10 +352,14 @@ def update_profile(
     Returns:
         UserResponse: Updated user details.
     """
-    if name:    current_user.name    = name
-    if phone:   current_user.phone   = phone
-    if address: current_user.address = address
-    if state:   current_user.state   = state
+    if data.name is not None:
+        current_user.name = data.name
+    if data.phone is not None:
+        current_user.phone = data.phone
+    if data.address is not None:
+        current_user.address = data.address
+    if data.state is not None:
+        current_user.state = data.state
 
     db.commit()
     db.refresh(current_user)

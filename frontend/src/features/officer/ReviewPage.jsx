@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { officerApi } from '../../api/officer.api';
 import { useToast } from '../../app/providers';
 import { fmtDateTime, getStatusLabel } from '../../utils/formatters';
@@ -8,32 +8,42 @@ import { STATUS_BADGE_MAP, SCHEME_LABELS, DOC_LABELS } from '../../utils/constan
 export default function OfficerReviewPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { addToast } = useToast();
   const [app, setApp] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [decision, setDecision] = useState('approved');
   const [remarks, setRemarks] = useState('');
   const [overrideScheme, setOverrideScheme] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     officerApi.getApplication(id)
-      .then((r) => setApp(r.data))
+      .then((r) => {
+        setApp(r.data);
+        if (r.data?.prediction?.predicted_scheme) {
+          setOverrideScheme(r.data.prediction.predicted_scheme);
+        }
+      })
       .catch(() => addToast('Failed to load application.', 'error'))
       .finally(() => setLoading(false));
   }, [id]);
 
   const canDecide = app && !app.decision && ['needs_review', 'auto_approved'].includes(app.status);
+  const isReadOnlyView = location.pathname.endsWith('/view');
 
   const handleDecide = async (e) => {
     e.preventDefault();
     if (!remarks.trim()) { addToast('Remarks are required.', 'error'); return; }
+    if (!overrideScheme) { addToast('Please select final scheme.', 'error'); return; }
+
+    const decision = overrideScheme === 'NOT_ELIGIBLE' ? 'rejected' : 'approved';
+
     setSubmitting(true);
     try {
       await officerApi.decide(id, {
         decision,
         remarks,
-        override_scheme: overrideScheme || undefined,
+        override_scheme: overrideScheme,
       });
       addToast('Decision submitted!', 'success');
       navigate('/officer/queue');
@@ -122,15 +132,27 @@ export default function OfficerReviewPage() {
               )}
 
               {/* SHAP */}
-              {app.prediction.shap_explanation && (
+              {app.prediction.shap_explanation ? (
                 <div style={{ marginTop: 16, padding: 14, background: 'var(--bg3)', borderRadius: 8 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
                     🔍 SHAP Explanation (Top Factors)
                   </div>
-                  {Object.entries(app.prediction.shap_explanation)
-                    .sort(([, a], [, b]) => Math.abs(b) - Math.abs(a))
-                    .slice(0, 8)
-                    .map(([feat, val]) => {
+                  {(() => {
+                    const MIN_IMPACT = 0.01;
+                    const strongFactors = Object.entries(app.prediction.shap_explanation)
+                      .sort(([, a], [, b]) => Math.abs(b) - Math.abs(a))
+                      .filter(([, val]) => Math.abs(val) >= MIN_IMPACT)
+                      .slice(0, 8);
+
+                    if (!strongFactors.length) {
+                      return (
+                        <div style={{ color: 'var(--text2)', fontSize: 12 }}>
+                          No strong feature drivers for this prediction (all SHAP impacts are near zero).
+                        </div>
+                      );
+                    }
+
+                    return strongFactors.map(([feat, val]) => {
                       const abs = Math.abs(val);
                       const max = 0.5;
                       const pct = Math.min(100, Math.round((abs / max) * 100));
@@ -147,7 +169,12 @@ export default function OfficerReviewPage() {
                           </div>
                         </div>
                       );
-                    })}
+                    });
+                  })()}
+                </div>
+              ) : (
+                <div style={{ marginTop: 16, padding: 14, background: 'var(--bg3)', borderRadius: 8, color: 'var(--text2)', fontSize: 12 }}>
+                  SHAP explanation not available for this prediction.
                 </div>
               )}
             </div>
@@ -201,6 +228,7 @@ export default function OfficerReviewPage() {
         </div>
 
         {/* Right column: Decision panel */}
+        {!isReadOnlyView && (
         <div style={{ position: 'sticky', top: 80 }}>
           <div className="card" style={{ borderTop: '3px solid var(--accent2)' }}>
             <h3 style={{ fontSize: 14, fontWeight: 800, marginBottom: 16 }}>⚖️ Decision Panel</h3>
@@ -223,28 +251,14 @@ export default function OfficerReviewPage() {
             ) : (
               <form onSubmit={handleDecide}>
                 <div className="form-group">
-                  <label>Decision *</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {['approved', 'rejected'].map((d) => (
-                      <button
-                        key={d} type="button"
-                        className={`btn ${decision === d ? (d === 'approved' ? 'btn-success' : 'btn-danger') : 'btn-secondary'}`}
-                        style={{ flex: 1, justifyContent: 'center' }}
-                        onClick={() => setDecision(d)}
-                      >
-                        {d === 'approved' ? '✅ Approve' : '❌ Reject'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Override Scheme (optional)</label>
+                  <label>Final Scheme *</label>
                   <select value={overrideScheme} onChange={(e) => setOverrideScheme(e.target.value)}>
-                    <option value="">Use predicted scheme</option>
+                    <option value="">Select scheme</option>
                     {Object.entries(SCHEME_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                   </select>
-                  <span style={{ fontSize: 11, color: 'var(--text2)' }}>Override only if prediction is incorrect</span>
+                  <span style={{ fontSize: 11, color: 'var(--text2)' }}>
+                    Choosing Not Eligible will reject the application.
+                  </span>
                 </div>
 
                 <div className="form-group">
@@ -260,16 +274,17 @@ export default function OfficerReviewPage() {
 
                 <button
                   type="submit"
-                  className={`btn ${decision === 'approved' ? 'btn-success' : 'btn-danger'}`}
+                  className={`btn ${overrideScheme === 'NOT_ELIGIBLE' ? 'btn-danger' : 'btn-success'}`}
                   style={{ width: '100%', justifyContent: 'center' }}
                   disabled={submitting}
                 >
-                  {submitting ? 'Submitting…' : `Submit ${decision === 'approved' ? 'Approval' : 'Rejection'}`}
+                  {submitting ? 'Submitting…' : overrideScheme === 'NOT_ELIGIBLE' ? 'Submit Rejection' : 'Submit Approval'}
                 </button>
               </form>
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

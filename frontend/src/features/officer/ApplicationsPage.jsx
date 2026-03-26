@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { officerApi } from "../../api/officer.api";
 import { fmtDate, getStatusLabel } from "../../utils/formatters";
 import { STATUS_BADGE_MAP, SCHEME_LABELS } from "../../utils/constants";
@@ -60,6 +61,7 @@ export default function OfficerApplicationsPage() {
                   <th>Scheme</th>
                   <th>Confidence</th>
                   <th>Status</th>
+                  <th>Action</th>
                 </tr>
               </thead>
 
@@ -108,6 +110,16 @@ export default function OfficerApplicationsPage() {
                       >
                         {getStatusLabel(a.status)}
                       </span>
+                    </td>
+
+                    <td>
+                      <Link
+                        to={`/officer/applications/${a.id}/view`}
+                        className="btn btn-secondary"
+                        style={{ padding: "6px 14px", fontSize: 12 }}
+                      >
+                        View →
+                      </Link>
                     </td>
                   </tr>
                 ))}

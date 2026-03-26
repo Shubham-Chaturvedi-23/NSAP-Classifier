@@ -200,27 +200,40 @@ def _compute_shap(df_input: pd.DataFrame,
         import shap
         model, _, _ = get_model()
 
-        explainer   = shap.TreeExplainer(model)
-        shap_vals   = explainer.shap_values(df_input)
+        explainer = shap.TreeExplainer(model)
+        raw_vals = explainer.shap_values(df_input)
+        class_idx = classes.index(predicted_scheme)
 
-        # Get SHAP values for the predicted class index
-        class_idx   = classes.index(predicted_scheme)
-        shap_for_class = shap_vals[class_idx][0]
+        # SHAP output shape varies by version/model:
+        # - ndarray (n_samples, n_features, n_classes)
+        # - ndarray (n_samples, n_features)
+        # - list[class] of (n_samples, n_features)
+        shap_for_class = None
+        if isinstance(raw_vals, np.ndarray):
+            if raw_vals.ndim == 3:
+                shap_for_class = raw_vals[0, :, class_idx]
+            elif raw_vals.ndim == 2:
+                shap_for_class = raw_vals[0, :]
+        elif isinstance(raw_vals, list) and raw_vals:
+            if class_idx < len(raw_vals):
+                shap_for_class = np.asarray(raw_vals[class_idx])[0]
 
-        # Map feature names to SHAP values
-        feature_shap = dict(zip(ALL_FEATURES, shap_for_class.tolist()))
+        if shap_for_class is None:
+            return None
 
-        # Return top 6 by absolute value
+        feature_names = list(df_input.columns)
+        feature_shap = dict(zip(feature_names, np.asarray(shap_for_class).tolist()))
+
         top_features = sorted(
             feature_shap.items(),
             key=lambda x: abs(x[1]),
-            reverse=True
-        )[:6]
+            reverse=True,
+        )[:8]
 
-        return {k: round(v, 4) for k, v in top_features}
+        return {k: round(float(v), 4) for k, v in top_features}
 
     except Exception:
-        # SHAP is best-effort — don't fail prediction if it errors
+        # SHAP is best-effort — don't fail prediction if it errors.
         return None
 
 

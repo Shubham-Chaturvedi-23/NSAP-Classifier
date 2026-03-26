@@ -66,6 +66,14 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserProfileUpdate(BaseModel):
+    """Request body for updating current user's profile."""
+    name:    Optional[str] = Field(None, min_length=2, max_length=100)
+    phone:   Optional[str] = Field(None, max_length=15)
+    address: Optional[str] = None
+    state:   Optional[str] = None
+
+
 class TokenResponse(BaseModel):
     """Response after successful login."""
     access_token: str

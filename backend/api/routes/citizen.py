@@ -164,6 +164,12 @@ async def upload_documents(
             detail      = "Application not found.",
         )
 
+    if application.status != AppStatus.PENDING:
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail      = "Documents can only be uploaded while application is pending.",
+        )
+
     saved_docs   = []
     merged_fields = {}
 
@@ -176,13 +182,6 @@ async def upload_documents(
             load_image_from_bytes, extract_text,
             detect_document_type, extract_certificate_number,
         )
-        import io
-        from fastapi import UploadFile as FU
-
-        # Re-create UploadFile with bytes for process_document
-        from starlette.datastructures import UploadFile as StarletteUpload
-        import io
-
         # Run OCR directly
         try:
             img      = load_image_from_bytes(file_bytes, file.filename)
@@ -204,17 +203,39 @@ async def upload_documents(
                 "disability_certificate": extract_disability_fields,
                 "death_certificate":     extract_death_cert_fields,
             }
+            doc_labels = {
+                "aadhaar": "Aadhaar",
+                "bpl_card": "BPL Card",
+                "disability_certificate": "Disability Certificate",
+                "death_certificate": "Death Certificate",
+            }
             extracted = {}
             if doc_type in extractors:
                 extracted = extractors[doc_type](raw_text)
 
+            # For known verification documents, certificate number is mandatory.
+            if doc_type in extractors and not cert_num:
+                raise HTTPException(
+                    status_code = status.HTTP_400_BAD_REQUEST,
+                    detail      = (
+                        f"Could not read certificate number from {doc_labels.get(doc_type, doc_type)}. "
+                        "Please ensure image is clear and contains the certificate number."
+                    ),
+                )
+
             merged_fields.update(extracted)
 
-        except Exception:
-            raw_text  = ""
-            doc_type  = declared_doc_type or "unknown"
-            cert_num  = None
-            extracted = {}
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code = status.HTTP_400_BAD_REQUEST,
+                detail      = (
+                    f"OCR failed for file '{file.filename}'. "
+                    "Please ensure the document is readable. "
+                    f"Error: {str(exc)}"
+                ),
+            )
 
         # Step 4 — Upload to Cloudinary
         try:
@@ -227,6 +248,14 @@ async def upload_documents(
             file_url = upload_result["url"]
         except Exception:
             file_url = None
+
+        # Step 4.5 — Replace previous uploads for same document type
+        # Keep only the latest document version per required doc_type.
+        db.query(Document).filter(
+            Document.application_id == application_id,
+            Document.doc_type == doc_type,
+        ).delete(synchronize_session=False)
+        db.commit()
 
         # Step 5 — Save Document record
         doc = Document(
@@ -579,6 +608,13 @@ def get_application_detail(
         "id":                    app.id,
         "status":                app.status,
         "submitted_at":          app.submitted_at.isoformat(),
+        "applicant": {
+            "name":    app.citizen.name,
+            "email":   app.citizen.email,
+            "phone":   app.citizen.phone,
+            "address": app.citizen.address,
+            "state":   app.citizen.state,
+        },
         "age":                   app.age,
         "gender":                app.gender,
         "marital_status":        app.marital_status,
