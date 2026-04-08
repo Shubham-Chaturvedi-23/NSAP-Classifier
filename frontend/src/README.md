@@ -80,8 +80,8 @@ src/
     │
     ├── officer/
     │   ├── QueuePage.jsx          # Priority queue (needs_review first) + stats
-    │   ├── ApplicationsPage.jsx   # Filterable list by status/scheme
-    │   └── ReviewPage.jsx         # Full review: SHAP, probabilities, decision panel
+    │   ├── ApplicationsPage.jsx   # All applications list with read-only detail links
+    │   └── ReviewPage.jsx         # Full review: SHAP, probabilities, decision panel/read-only view
     │
     └── admin/
         ├── DashboardPage.jsx      # Stats + Recharts pie/bar + officer leaderboard
@@ -123,8 +123,9 @@ The router automatically redirects to the correct home after login, and blocks c
 ### Officer
 - Priority queue — `needs_review` applications floated to the top with warning styling
 - Full review page with SHAP feature-importance bars and per-scheme probability breakdown
-- Decision panel: approve/reject + optional scheme override + mandatory remarks
+- Decision panel: choose final scheme + mandatory remarks (NOT_ELIGIBLE maps to rejection)
 - Decision panel locks if decision already exists or application not in actionable state
+- All Applications page opens read-only detail view (same layout without decision panel)
 
 ### Admin
 - Dashboard with Recharts PieChart (scheme distribution) + BarChart (status distribution)

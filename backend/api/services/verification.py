@@ -14,12 +14,25 @@ Description: Mock government portal verification service.
 import json
 import re
 from datetime import datetime
+from pathlib import Path
+from urllib.parse import urlparse
+
+import httpx
 
 from api.config import (
     VALID_AADHAAR, VALID_BPL,
     VALID_DISABILITY, VALID_DEATH_CERT,
     INVALID_CERTIFICATES, DocType,
     VerificationStatus,
+)
+from api.services.ocr import (
+    load_image_from_bytes,
+    extract_text,
+    extract_certificate_number,
+    extract_aadhaar_fields,
+    extract_bpl_fields,
+    extract_disability_fields,
+    extract_death_cert_fields,
 )
 
 
@@ -92,6 +105,130 @@ def _build_result(
             "to authorized government APIs (UIDAI/UDID/State portals)."
         ),
     }
+
+
+def _download_document_bytes(file_url: str) -> tuple[bytes, str]:
+    if not file_url:
+        raise ValueError("Document URL is missing.")
+
+    parsed = urlparse(file_url)
+    filename = Path(parsed.path).name or "document.png"
+
+    with httpx.Client(timeout=20.0, follow_redirects=True) as client:
+        response = client.get(file_url)
+        response.raise_for_status()
+        return response.content, filename
+
+
+def _extract_doc_data_from_cloudinary(file_url: str, doc_type: str) -> dict:
+    file_bytes, filename = _download_document_bytes(file_url)
+    image = load_image_from_bytes(file_bytes, filename)
+    raw_text = extract_text(image)
+
+    extractors = {
+        DocType.AADHAAR: extract_aadhaar_fields,
+        DocType.BPL_CARD: extract_bpl_fields,
+        DocType.DISABILITY: extract_disability_fields,
+        DocType.DEATH_CERT: extract_death_cert_fields,
+    }
+
+    extracted = {}
+    if doc_type in extractors:
+        extracted = extractors[doc_type](raw_text)
+
+    cert_from_doc = extract_certificate_number(raw_text, doc_type)
+
+    return {
+        "filename": filename,
+        "raw_text": raw_text,
+        "extracted": extracted,
+        "certificate_number": cert_from_doc,
+    }
+
+
+def _normalized_value(value):
+    if isinstance(value, str):
+        return value.strip().lower()
+    return value
+
+
+def _compare_fields(reference: dict, observed: dict, fields: list[str]) -> list[str]:
+    mismatches = []
+    for key in fields:
+        ref_val = _normalized_value(reference.get(key))
+        obs_val = _normalized_value(observed.get(key))
+        if ref_val is None or obs_val is None:
+            continue
+        if ref_val != obs_val:
+            mismatches.append(
+                f"{key} mismatch (expected: {reference.get(key)}, found: {observed.get(key)})"
+            )
+    return mismatches
+
+
+def _validate_against_application(doc_type: str, app_data: dict, doc_extracted: dict) -> list[str]:
+    if not app_data:
+        return []
+
+    app_fields_by_doc = {
+        DocType.AADHAAR: ["age", "gender", "state", "area_type"],
+        DocType.BPL_CARD: ["annual_income"],
+        DocType.DISABILITY: ["disability_percentage", "disability_type"],
+        DocType.DEATH_CERT: ["marital_status"],
+    }
+
+    required_flags = {
+        DocType.BPL_CARD: ("bpl_card", "yes"),
+        DocType.DISABILITY: ("has_disability", "yes"),
+        DocType.DEATH_CERT: ("marital_status", "widowed"),
+    }
+
+    mismatches = _compare_fields(app_data, doc_extracted, app_fields_by_doc.get(doc_type, []))
+
+    flag_rule = required_flags.get(doc_type)
+    if flag_rule:
+        field, expected = flag_rule
+        current = _normalized_value(app_data.get(field))
+        if current != expected:
+            mismatches.append(
+                f"Application field {field} does not permit {doc_type} verification."
+            )
+
+    return mismatches
+
+
+def _validate_against_registry(doc_type: str, registry_data: dict, doc_extracted: dict) -> list[str]:
+    if not registry_data:
+        return []
+
+    field_pairs_by_doc = {
+        DocType.AADHAAR: [
+            ("age", "age"),
+            ("gender", "gender"),
+            ("state", "state"),
+            ("area_type", "area_type"),
+        ],
+        DocType.BPL_CARD: [
+            ("income", "annual_income"),
+        ],
+        DocType.DISABILITY: [
+            ("percentage", "disability_percentage"),
+            ("type", "disability_type"),
+        ],
+    }
+
+    mismatches = []
+    for ref_key, doc_key in field_pairs_by_doc.get(doc_type, []):
+        ref_val = _normalized_value(registry_data.get(ref_key))
+        doc_val = _normalized_value(doc_extracted.get(doc_key))
+        if ref_val is None or doc_val is None:
+            continue
+        if ref_val != doc_val:
+            mismatches.append(
+                f"{doc_key} mismatch (registry: {registry_data.get(ref_key)}, doc: {doc_extracted.get(doc_key)})"
+            )
+
+    return mismatches
 
 
 # ─── Individual Verifiers ─────────────────────────────────────
@@ -300,7 +437,12 @@ def verify_death_certificate(cert_number: str) -> dict:
 
 
 # ─── Main Verification Router ─────────────────────────────────
-def verify_document(doc_type: str, cert_number: str) -> dict:
+def verify_document(
+    doc_type: str,
+    cert_number: str,
+    file_url: str | None = None,
+    application_data: dict | None = None,
+) -> dict:
     """
     Route verification request to correct verifier by document type.
 
@@ -328,7 +470,79 @@ def verify_document(doc_type: str, cert_number: str) -> dict:
             message     = f"Unknown document type: {doc_type}"
         )
 
-    return verifier(cert_number)
+    if not file_url:
+        return _build_result(
+            status      = VerificationStatus.FAILED,
+            doc_type    = doc_type,
+            cert_number = cert_number,
+            message     = "Document URL missing; cannot verify uploaded file."
+        )
+
+    try:
+        doc_data = _extract_doc_data_from_cloudinary(file_url, doc_type)
+    except Exception as exc:
+        return _build_result(
+            status      = VerificationStatus.FAILED,
+            doc_type    = doc_type,
+            cert_number = cert_number,
+            message     = f"Unable to fetch/read uploaded document from Cloudinary: {exc}"
+        )
+
+    doc_cert = doc_data.get("certificate_number")
+    if not doc_cert:
+        return _build_result(
+            status      = VerificationStatus.FAILED,
+            doc_type    = doc_type,
+            cert_number = cert_number,
+            message     = "Certificate number not found in uploaded document OCR text."
+        )
+
+    if cert_number and _canonical_cert(cert_number) != _canonical_cert(doc_cert):
+        return _build_result(
+            status      = VerificationStatus.FAILED,
+            doc_type    = doc_type,
+            cert_number = doc_cert,
+            message     = (
+                "Uploaded document certificate does not match the stored OCR certificate. "
+                f"Stored: {cert_number}, Uploaded: {doc_cert}"
+            )
+        )
+
+    registry_result = verifier(doc_cert)
+    if registry_result["status"] != VerificationStatus.VERIFIED:
+        return registry_result
+
+    config_mismatches = _validate_against_registry(
+        doc_type,
+        registry_result.get("verified_data", {}),
+        doc_data.get("extracted", {}),
+    )
+    app_mismatches = _validate_against_application(
+        doc_type,
+        application_data or {},
+        doc_data.get("extracted", {}),
+    )
+
+    all_mismatches = [*config_mismatches, *app_mismatches]
+    if all_mismatches:
+        return _build_result(
+            status      = VerificationStatus.FAILED,
+            doc_type    = doc_type,
+            cert_number = doc_cert,
+            data        = doc_data.get("extracted", {}),
+            message     = "Document data mismatch: " + "; ".join(all_mismatches)
+        )
+
+    verified_data = dict(registry_result.get("verified_data", {}))
+    verified_data.update(doc_data.get("extracted", {}))
+
+    return _build_result(
+        status      = VerificationStatus.VERIFIED,
+        doc_type    = doc_type,
+        cert_number = doc_cert,
+        data        = verified_data,
+        message     = "Document verified from Cloudinary upload and matched with config/application data."
+    )
 
 
 # ─── Batch Verification ───────────────────────────────────────

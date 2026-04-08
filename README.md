@@ -34,6 +34,18 @@ role-based access for Citizens, Officers and Admins.
 
 ---
 
+## Architecture
+
+- Client Layer: Citizen, Officer, and Admin React 18 SPA interfaces.
+- API and Business Logic Layer: FastAPI handles routing, auth, OCR,
+       verification, notifications, and application workflow.
+- Data Layer: MySQL stores application and user data, while Cloudinary
+       stores uploaded document images.
+- Internal ML Service: CatBoost prediction and SHAP explanation live
+       inside the FastAPI layer and are invoked during application review.
+
+---
+
 ## Project Structure
 ```
 NSAP-Classifier/
@@ -160,17 +172,25 @@ NSAP-Classifier/
 | Role | Responsibilities |
 |---|---|
 | **Citizen** | Register, fill application form, upload documents, track status |
-| **Officer** | Review applications, view SHAP explanations, approve/reject |
+ | **Officer** | Review applications, view SHAP explanations, choose final scheme and submit decision |
 | **Admin** | Analytics dashboard, model metrics, fairness report, officer activity |
 
 ---
 
 ## Application Workflow
 ```
-Citizen fills form + uploads documents
+Citizen submits application (pending)
               ↓
+Citizen uploads required documents
+                ↓
 OCR extracts fields → Mock verification
               ↓
+If any required document fails verification
+                ↓
+Immediate rejection + citizen notified
+                ↓
+If all required documents are verified
+                ↓
 Model predicts scheme + confidence
               ↓
        ┌──────┴──────┐
@@ -187,8 +207,9 @@ confidence       confidence
       (both cases need
       officer sign-off)
               ↓
-      Final Decision
-    (approve / reject)
+Final officer decision
+(final scheme selection;
+ NOT_ELIGIBLE => reject)
               ↓
     Citizen notified
 ```
@@ -260,7 +281,9 @@ Open in browser:
 |---|---|---|
 | POST | `/api/v1/auth/register` | Register new user |
 | POST | `/api/v1/auth/login` | Login and get JWT token |
+| POST | `/api/v1/auth/login/form` | OAuth2-compatible form login |
 | GET | `/api/v1/auth/me` | Get current user profile |
+| PUT | `/api/v1/auth/me` | Update current user profile |
 
 ### Citizen
 | Method | Endpoint | Description |
@@ -270,7 +293,10 @@ Open in browser:
 | POST | `/api/v1/citizen/documents/verify` | Verify documents mock portal |
 | GET | `/api/v1/citizen/applications` | List own applications |
 | GET | `/api/v1/citizen/applications/{id}` | Single application detail |
+| PUT | `/api/v1/citizen/applications/{id}` | Update pending application before verification |
 | GET | `/api/v1/citizen/notifications` | Get notifications |
+| PUT | `/api/v1/citizen/notifications/read` | Mark all notifications as read |
+| PUT | `/api/v1/citizen/notifications/{id}/read` | Mark one notification as read |
 
 ### Officer
 | Method | Endpoint | Description |
@@ -278,7 +304,7 @@ Open in browser:
 | GET | `/api/v1/officer/queue` | Priority review queue |
 | GET | `/api/v1/officer/applications` | All applications |
 | GET | `/api/v1/officer/applications/{id}` | Full detail with SHAP |
-| POST | `/api/v1/officer/applications/{id}/decide` | Approve or reject |
+| POST | `/api/v1/officer/applications/{id}/decide` | Submit decision (derived from selected final scheme) |
 | GET | `/api/v1/officer/stats` | Officer dashboard stats |
 
 ### Admin
@@ -323,7 +349,7 @@ Key features: `age`, `disability_percentage`, `annual_income`, `bpl_card`
 | Authentication | JWT + bcrypt |
 | OCR | Tesseract + OpenCV |
 | Storage | Cloudinary |
-| Frontend | React 18 + Tailwind CSS (to be built) |
+| Frontend | React 18 + Vite + custom CSS |
 | Training | Google Colab (T4 GPU) |
 | Deployment | Railway + PlanetScale |
 

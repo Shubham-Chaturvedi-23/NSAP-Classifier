@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.models.database import create_tables
 from api.services.prediction import load_model_artifacts
-from api.services.storage import check_cloudinary_connection
+from api.services.storage import get_cloudinary_connection_status
 from api.routes.health import router as health_router
 from api.routes.auth import router as auth_router
 from api.routes.citizen import router as citizen_router
@@ -58,10 +58,11 @@ async def lifespan(app: FastAPI):
 
     # Step 3 — Verify Cloudinary (non-blocking — warn only)
     try:
-        if check_cloudinary_connection():
+        ok, reason = get_cloudinary_connection_status()
+        if ok:
             print("✅ Cloudinary connected")
         else:
-            print("⚠️  Cloudinary not configured — document upload disabled")
+            print(f"⚠️  Cloudinary check failed ({reason}) — document upload disabled")
     except Exception:
         print("⚠️  Cloudinary check failed — document upload may not work")
 

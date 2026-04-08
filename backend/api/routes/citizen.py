@@ -238,16 +238,13 @@ async def upload_documents(
             )
 
         # Step 4 — Upload to Cloudinary
-        try:
-            upload_result = upload_document(
-                file_bytes     = file_bytes,
-                filename       = file.filename,
-                application_id = application_id,
-                doc_type       = doc_type,
-            )
-            file_url = upload_result["url"]
-        except Exception:
-            file_url = None
+        upload_result = upload_document(
+            file_bytes     = file_bytes,
+            filename       = file.filename,
+            application_id = application_id,
+            doc_type       = doc_type,
+        )
+        file_url = upload_result["url"]
 
         # Step 4.5 — Replace previous uploads for same document type
         # Keep only the latest document version per required doc_type.
@@ -275,6 +272,8 @@ async def upload_documents(
             "document_id":         doc.id,
             "doc_type":            doc_type,
             "file_url":            file_url,
+            "public_id":           upload_result.get("public_id"),
+            "resource_type":       upload_result.get("resource_type"),
             "certificate_number":  cert_num,
             "verification_status": "pending",
             "extracted":           extracted,
@@ -351,9 +350,27 @@ def verify_documents(
         documents.append(latest_doc)
 
     # Run verification for each document
+    application_data = {
+        "age": application.age,
+        "gender": application.gender,
+        "marital_status": application.marital_status,
+        "annual_income": application.annual_income,
+        "bpl_card": application.bpl_card,
+        "area_type": application.area_type,
+        "state": application.state,
+        "has_disability": application.has_disability,
+        "disability_percentage": application.disability_percentage,
+        "disability_type": application.disability_type,
+    }
+
     verification_results = []
     for doc in documents:
-        result = verify_document(doc.doc_type, doc.certificate_number)
+        result = verify_document(
+            doc_type          = doc.doc_type,
+            cert_number       = doc.certificate_number,
+            file_url          = doc.file_url,
+            application_data  = application_data,
+        )
 
         # Update verification status in database
         doc.verification_status = result["status"]

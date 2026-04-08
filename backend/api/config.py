@@ -14,7 +14,11 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
+
+
+def _env(name: str, default: str = "") -> str:
+    return os.getenv(name, default).strip()
 
 # ─── Project Root ─────────────────────────────────────────────
 BASE_DIR      = Path(__file__).resolve().parent
@@ -92,30 +96,30 @@ CORS_ORIGINS = [
 # ─── Database ─────────────────────────────────────────────────
 # Local MySQL for development.
 # In production replace with PlanetScale DATABASE_URL from .env
-DB_HOST     = os.getenv("DB_HOST", "127.0.0.1")
-DB_PORT     = os.getenv("DB_PORT", "3306")
-DB_USER     = os.getenv("DB_USER", "root")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_NAME     = os.getenv("DB_NAME", "nsap_db")
+DB_HOST     = _env("DB_HOST", "127.0.0.1")
+DB_PORT     = _env("DB_PORT", "3306")
+DB_USER     = _env("DB_USER", "root")
+DB_PASSWORD = _env("DB_PASSWORD", "")
+DB_NAME     = _env("DB_NAME", "nsap_db")
 
 # PlanetScale provides full URL — takes priority if set in .env
-DATABASE_URL = os.getenv(
+DATABASE_URL = _env(
     "DATABASE_URL",
     f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
 
 # ─── JWT Authentication ───────────────────────────────────────
-SECRET_KEY         = os.getenv("SECRET_KEY", "change-this-in-production")
+SECRET_KEY         = _env("SECRET_KEY", "change-this-in-production")
 JWT_ALGORITHM      = "HS256"
 JWT_EXPIRE_MINUTES = 1440       # 24 hours
 
 # ─── Cloudinary (Document Storage) ───────────────────────────
-CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME", "")
-CLOUDINARY_API_KEY    = os.getenv("CLOUDINARY_API_KEY", "")
-CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET", "")
+CLOUDINARY_CLOUD_NAME = _env("CLOUDINARY_CLOUD_NAME", "")
+CLOUDINARY_API_KEY    = _env("CLOUDINARY_API_KEY", "")
+CLOUDINARY_API_SECRET = _env("CLOUDINARY_API_SECRET", "")
 
 # ─── OCR ──────────────────────────────────────────────────────
-TESSERACT_PATH     = os.getenv(
+TESSERACT_PATH     = _env(
     "TESSERACT_PATH",
     r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 )
@@ -191,7 +195,7 @@ VALID_AADHAAR = {
     },
     "2345-6789-0123": {
         "name":     "Sita Devi",
-        "age":      52,
+        "age":      61,
         "gender":   "Female",
         "state":    "Uttar Pradesh",
         "area_type": "Rural"
@@ -219,25 +223,19 @@ VALID_AADHAAR = {
     },
     "6789-0123-4567": {
         "name":     "Kamla Devi",
-        "age":      60,
+        "age":      25,
         "gender":   "Female",
         "state":    "Uttar Pradesh",
         "area_type": "Rural"
     },
     "7890-1234-5678": {
         "name":     "Suresh Yadav",
-        "age":      68,
+        "age":      40,
         "gender":   "Male",
         "state":    "Madhya Pradesh",
         "area_type": "Rural"
     },
-    "7138-3410-7816": {
-        "name":     "Shubham Chaturvedi",
-        "age":      68,
-        "gender":   "Male",
-        "state":    "Uttar Pradesh",
-        "area_type": "Rural"
-    },
+    
 }
 
 VALID_BPL = {
@@ -252,20 +250,15 @@ VALID_BPL = {
 
 VALID_DISABILITY = {
     "DIS/UP/2023/001": {"percentage": 65, "type": "Locomotor"},
-    "DIS/BR/2023/002": {"percentage": 75, "type": "Visual"},
-    "DIS/RJ/2023/003": {"percentage": 55, "type": "Hearing"},
-    "DIS/MP/2023/004": {"percentage": 80, "type": "Intellectual"},
-    "DIS/BR/2023/005": {"percentage": 45, "type": "Cerebral Palsy"},
-    "DIS/UP/2023/006": {"percentage": 70, "type": "Multiple Disabilities"},
-    "DIS/MP/2023/007": {"percentage": 60, "type": "Mental Illness"},
+    "DIS/BR/2023/005": {"percentage": 40, "type": "Cerebral Palsy"},
+    "DIS/UP/2023/006": {"percentage": 20, "type": "Multiple Disabilities"},
+    "DIS/MP/2023/007": {"percentage": 30, "type": "Mental Illness"},
 }
 
 VALID_DEATH_CERT = {
     "DC/UP/2023/001": {"deceased": "Shyam Kumar",  "widow": "Sita Devi"},
     "DC/BR/2023/002": {"deceased": "Ramesh Lal",   "widow": "Geeta Bai"},
-    "DC/RJ/2023/003": {"deceased": "Mohan Singh",  "widow": "Priya Devi"},
-    "DC/MP/2023/004": {"deceased": "Rajesh Kumar", "widow": "Kamla Devi"},
-    "DC/UP/2023/005": {"deceased": "Dinesh Yadav", "widow": "Meera Devi"},
+
 }
 
 # Invalid certificates for demo/testing rejection flow

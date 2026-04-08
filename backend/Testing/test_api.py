@@ -62,7 +62,7 @@ def post(endpoint, data, token=None):
         return 0, {"error": str(e)}
 
 
-def get(endpoint, token=None, params=None):
+def get(endpoint, token=None, params=None, expect_json=True):
     headers = {}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -73,7 +73,18 @@ def get(endpoint, token=None, params=None):
             params  = params,
             timeout = 10,
         )
-        return r.status_code, r.json()
+        if expect_json:
+            try:
+                return r.status_code, r.json()
+            except ValueError:
+                return r.status_code, {
+                    "content_type": r.headers.get("content-type", ""),
+                    "raw_text": r.text,
+                }
+        return r.status_code, {
+            "content_type": r.headers.get("content-type", ""),
+            "content_length": len(r.content),
+        }
     except Exception as e:
         return 0, {"error": str(e)}
 
@@ -521,7 +532,8 @@ def test_admin():
     # ── Confusion Matrix ──────────────────────────────────────
     code, _ = get(
         "/admin/model/confusion",
-        token=state["admin_token"]
+        token=state["admin_token"],
+        expect_json=False,
     )
     print_result(
         "GET /admin/model/confusion",
@@ -532,7 +544,8 @@ def test_admin():
     # ── SHAP Image ────────────────────────────────────────────
     code, _ = get(
         "/admin/model/shap",
-        token=state["admin_token"]
+        token=state["admin_token"],
+        expect_json=False,
     )
     print_result(
         "GET /admin/model/shap",
