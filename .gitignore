@@ -38,6 +38,9 @@ models/*.pkl
 models/*.bin
 models/*.pt
 
+backend/Testing/
+!backend/Testing/*.py
+
 # ── Dataset ────────────────────────────────────────────────────
 # Large CSV files — do not commit
 *.csv

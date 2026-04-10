@@ -5,6 +5,23 @@ import { useToast } from '../../app/providers';
 import { fmtDateTime, getStatusLabel } from '../../utils/formatters';
 import { STATUS_BADGE_MAP, SCHEME_LABELS, DOC_LABELS } from '../../utils/constants';
 
+const renderValue = (value) => {
+  if (value == null || value === '') return '—';
+  if (typeof value === 'object') {
+    if (Array.isArray(value)) {
+      return value.map(renderValue).join(', ');
+    }
+
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return '—';
+    }
+  }
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return String(value);
+};
+
 export default function OfficerReviewPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -30,6 +47,7 @@ export default function OfficerReviewPage() {
 
   const canDecide = app && !app.decision && ['needs_review', 'auto_approved'].includes(app.status);
   const isReadOnlyView = location.pathname.endsWith('/view');
+  const probabilityEntries = Object.entries(app?.prediction?.all_probabilities || {});
 
   const handleDecide = async (e) => {
     e.preventDefault();
@@ -58,6 +76,8 @@ export default function OfficerReviewPage() {
   if (!app) return <div className="alert alert-error">Application not found.</div>;
 
   const formData = app.form_data || app;
+  const applicantEntries = Object.entries(formData)
+    .filter(([k]) => !['id','status','created_at','updated_at','prediction','decision','documents','form_data','citizen'].includes(k));
 
   return (
     <div style={{ maxWidth: 900 }}>
@@ -185,15 +205,26 @@ export default function OfficerReviewPage() {
             <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14 }}>
               📋 Applicant Data
             </h3>
+            {app.citizen && (
+              <div style={{ marginBottom: 14, padding: 12, background: 'var(--bg3)', borderRadius: 8 }}>
+                <div style={{ fontSize: 10, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Citizen Profile</div>
+                <div className="grid-3" style={{ gap: 8 }}>
+                  {Object.entries(app.citizen).map(([k, v]) => (
+                    <div key={k} style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.35)', borderRadius: 6 }}>
+                      <div style={{ fontSize: 10, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{k.replace(/_/g, ' ')}</div>
+                      <div style={{ fontWeight: 600, fontSize: 13, marginTop: 2 }}>{renderValue(v)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="grid-3" style={{ gap: 8 }}>
-              {Object.entries(formData)
-                .filter(([k]) => !['id','status','created_at','updated_at','prediction','decision','documents','form_data'].includes(k))
-                .map(([k, v]) => (
-                  <div key={k} style={{ padding: '10px 12px', background: 'var(--bg3)', borderRadius: 6 }}>
-                    <div style={{ fontSize: 10, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{k.replace(/_/g, ' ')}</div>
-                    <div style={{ fontWeight: 600, fontSize: 13, marginTop: 2 }}>{String(v)}</div>
-                  </div>
-                ))}
+              {applicantEntries.map(([k, v]) => (
+                <div key={k} style={{ padding: '10px 12px', background: 'var(--bg3)', borderRadius: 6 }}>
+                  <div style={{ fontSize: 10, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{k.replace(/_/g, ' ')}</div>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginTop: 2, whiteSpace: typeof v === 'object' ? 'pre-wrap' : 'normal' }}>{renderValue(v)}</div>
+                </div>
+              ))}
             </div>
           </div>
 
