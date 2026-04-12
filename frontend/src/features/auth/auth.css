@@ -23,6 +23,32 @@
 .auth-sub { color: var(--text2); font-size: 13px; margin-bottom: 24px; }
 .auth-link { text-align: center; margin-top: 20px; font-size: 13px; color: var(--text2); }
 
+.password-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.password-input-wrap input {
+  flex: 1;
+}
+
+.password-toggle {
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  color: var(--text);
+  border-color: var(--accent2);
+}
+
 .auth-demo {
   margin-top: 20px;
   padding: 14px;

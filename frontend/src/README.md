@@ -1,8 +1,36 @@
-# NSAP Scheme Classification System — Frontend
+﻿# Frontend README
 
-React + Vite frontend for the National Social Assistance Programme (NSAP) scheme classification system.
+React + Vite frontend for the NSAP Scheme Classification System.
 
----
+## What This App Contains
+
+- Public login and registration pages.
+- Citizen application, detail, and notification pages.
+- Officer queue and review pages.
+- Admin dashboard, application explorer, model, and users pages.
+- Shared layout, feedback, and utility components.
+
+## Project Structure
+
+```text
+src/
+├── main.jsx
+├── styles/
+├── app/
+├── api/
+├── components/
+├── features/
+└── utils/
+```
+
+## Main Frontend Files
+
+- [src/main.jsx](src/main.jsx)
+- [src/app/router.jsx](src/app/router.jsx)
+- [src/app/providers.jsx](src/app/providers.jsx)
+- [src/api/client.js](src/api/client.js)
+- [src/utils/constants.js](src/utils/constants.js)
+- [src/utils/guards.js](src/utils/guards.js)
 
 ## Prerequisites
 
@@ -10,161 +38,82 @@ React + Vite frontend for the National Social Assistance Programme (NSAP) scheme
 - npm 9+
 - Backend running at `http://localhost:8000`
 
----
+## Setup
 
-## Quick Start
+From the `frontend/` folder:
 
 ```bash
-# 1. Install dependencies
 npm install
-
-# 2. Copy env file and set your backend URL
-cp .env.example .env
-# Edit .env if backend runs on a different port
-
-# 3. Start the dev server
+copy .env.example .env
 npm run dev
-
-# Opens at http://localhost:5173
 ```
 
----
-
-## Project Structure
-
-```
-src/
-├── main.jsx                  # Entry point — mounts React, wires providers
-├── styles/globals.css        # Global design tokens + utility classes
-│
-├── app/
-│   ├── providers.jsx         # AuthContext (login/logout/user) + ToastContext
-│   └── router.jsx            # All routes with role-based guards
-│
-├── api/
-│   ├── client.js             # Axios instance: Bearer token + 401 redirect
-│   ├── auth.api.js           # /auth/* endpoints
-│   ├── citizen.api.js        # /citizen/* endpoints
-│   ├── officer.api.js        # /officer/* endpoints
-│   └── admin.api.js          # /admin/* endpoints
-│
-├── utils/
-│   ├── constants.js          # ROLES, STATUS_BADGE_MAP, SCHEME_LABELS, dropdowns
-│   ├── formatters.js         # fmtDate, fmtCurrency, getRequiredDocuments()
-│   ├── guards.js             # Token decode, isTokenExpired, getRoleHomePath()
-│   ├── useApi.js             # useApi() and useMutation() custom hooks
-│   └── i18n.js               # i18next config — English + Hindi translations
-│
-├── components/
-│   ├── layout/
-│   │   ├── AppLayout.jsx     # Sidebar + topbar shell (role-aware navigation)
-│   │   └── AppLayout.css
-│   └── feedback/
-│       ├── index.jsx         # StatusBadge, SchemeBadge, ConfidenceBar,
-│       │                     # StatCard, EmptyState, ErrorAlert, Pagination
-│       ├── ErrorBoundary.jsx # React class error boundary
-│       └── LangSwitcher.jsx  # EN ↔ HI toggle button
-│
-└── features/
-    ├── auth/
-    │   ├── LoginPage.jsx     # Email/password login form
-    │   ├── RegisterPage.jsx  # Citizen self-registration
-    │   ├── ProfilePage.jsx   # Update name/phone/address/state
-    │   └── Auth.css
-    │
-    ├── citizen/
-    │   ├── ApplyPage.jsx          # 14-field application form with validation
-    │   ├── ApplicationsPage.jsx   # List with confidence bars + status badges
-    │   ├── ApplicationDetail.jsx  # Detail + AI prediction + document upload/verify
-    │   └── NotificationsPage.jsx  # Notifications list + mark read
-    │
-    ├── officer/
-    │   ├── QueuePage.jsx          # Priority queue (needs_review first) + stats
-    │   ├── ApplicationsPage.jsx   # All applications list with read-only detail links
-    │   └── ReviewPage.jsx         # Full review: SHAP, probabilities, decision panel/read-only view
-    │
-    └── admin/
-        ├── DashboardPage.jsx      # Stats + Recharts pie/bar + officer leaderboard
-        ├── ApplicationsPage.jsx   # System-wide explorer with filters
-        ├── ModelPage.jsx          # Accuracy/F1/fairness + confusion matrix image
-        └── UsersPage.jsx          # User listing with roles
-```
-
----
+The dev server runs at `http://localhost:5173`.
 
 ## Environment Variables
 
-| Variable           | Default                          | Description              |
-|--------------------|----------------------------------|--------------------------|
-| `VITE_API_BASE_URL`| `http://localhost:8000/api/v1`  | FastAPI backend base URL |
+The frontend currently uses:
 
----
+- `VITE_API_BASE_URL` to point to the FastAPI backend, usually `http://localhost:8000/api/v1`
 
-## Roles & Routes
+## Routes
 
-| Role    | Home Route              | Access                                      |
-|---------|-------------------------|---------------------------------------------|
-| citizen | `/citizen/applications` | Apply, track applications, notifications     |
-| officer | `/officer/queue`        | Review queue, approve/reject with SHAP view  |
-| admin   | `/admin/dashboard`      | Analytics, model metrics, user management    |
+| Route | Purpose |
+|---|---|
+| `/login` | Login page |
+| `/register` | Citizen registration |
+| `/profile` | Logged-in profile page |
+| `/citizen/applications` | Citizen application list |
+| `/citizen/apply` | Submit application |
+| `/citizen/applications/:id` | Citizen application detail |
+| `/citizen/notifications` | Citizen notifications |
+| `/officer/queue` | Officer priority queue |
+| `/officer/applications` | Officer application list |
+| `/officer/applications/:id` | Officer review page |
+| `/admin/dashboard` | Admin dashboard |
+| `/admin/applications` | Admin application explorer |
+| `/admin/model` | Model metrics page |
+| `/admin/users` | User management page |
 
-The router automatically redirects to the correct home after login, and blocks cross-role access.
+## Key Behaviors
 
----
+- Auth state is stored in localStorage.
+- The router redirects users to their role home path after login.
+- Cross-role routes are blocked.
+- The layout shell is role-aware.
+- The app supports English and Hindi via the language switcher.
 
-## Key Features
+## Features By Role
 
 ### Citizen
-- Multi-section application form with live validation mirroring backend constraints
-- Conditional document checklist (Aadhaar always + BPL/Death/Disability cert based on answers)
-- Drag-and-drop document upload per doc type with OCR verification status
-- Notification feed with unread indicators and mark-all-read
+
+- Submit the NSAP application form.
+- View prediction results and application details.
+- Upload and verify documents.
+- Read application notifications.
 
 ### Officer
-- Priority queue — `needs_review` applications floated to the top with warning styling
-- Full review page with SHAP feature-importance bars and per-scheme probability breakdown
-- Decision panel: choose final scheme + mandatory remarks (NOT_ELIGIBLE maps to rejection)
-- Decision panel locks if decision already exists or application not in actionable state
-- All Applications page opens read-only detail view (same layout without decision panel)
+
+- Review `needs_review` applications first.
+- Inspect probabilities and SHAP output.
+- Approve or reject applications with remarks.
 
 ### Admin
-- Dashboard with Recharts PieChart (scheme distribution) + BarChart (status distribution)
-- Officer activity leaderboard with medal icons
-- Model metrics: accuracy/precision/recall/F1 + per-class table + confusion matrix image + SHAP summary image
-- Fairness report table with flag indicators
 
----
+- View dashboard analytics.
+- Inspect model metrics and fairness output.
+- Manage users and browse applications.
 
-## Manual Testing Checklist
-
-- [ ] Login as citizen → redirected to `/citizen/applications`
-- [ ] Login as officer → redirected to `/officer/queue`
-- [ ] Login as admin  → redirected to `/admin/dashboard`
-- [ ] Citizen submits application → sees AI prediction on detail page
-- [ ] Citizen uploads Aadhaar, triggers verify → status updates
-- [ ] Officer finds pending app → submits approve/reject with remarks
-- [ ] Citizen sees updated status + new notification
-- [ ] Admin dashboard numbers render without crash
-- [ ] Upload wrong file type → frontend shows sensible error
-- [ ] Navigate to wrong role's route → auto-redirect to own home
-- [ ] Expire/remove token from localStorage → redirect to login
-
----
-
-## Build for Production
+## Production Build
 
 ```bash
 npm run build
-# Output in dist/
-npm run preview   # Preview the production build locally
+npm run preview
 ```
 
----
+The build output is written to `dist/`.
 
-## Demo Credentials (seed these in your backend)
+## Related Files
 
-| Role    | Email                      | Password  |
-|---------|----------------------------|-----------|
-| citizen | test.citizen@nsap.com      | test1234  |
-| officer | test.officer@nsap.com      | test1234  |
-| admin   | test.admin@nsap.com        | test1234  |
+- [../index.html](../index.html)
+- [../package.json](../package.json)

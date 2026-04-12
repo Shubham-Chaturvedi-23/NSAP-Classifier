@@ -23,6 +23,7 @@ export default function CitizenApplicationDetail() {
   const [app, setApp] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState({});
+  const [selectedFiles, setSelectedFiles] = useState({});
   const [verifying, setVerifying] = useState(false);
   const [verifyReport, setVerifyReport] = useState(null);
   const fileRefs = useRef({});
@@ -52,6 +53,11 @@ export default function CitizenApplicationDetail() {
       // Log OCR debug info to browser console for troubleshooting
       if (res?.data?.documents?.[0]?.ocr_debug) {
         console.log(`[OCR Debug - ${docType}]:`, res.data.documents[0].ocr_debug);
+      }
+
+      setSelectedFiles((prev) => ({ ...prev, [docType]: '' }));
+      if (fileRefs.current[docType]) {
+        fileRefs.current[docType].value = '';
       }
       
       load();
@@ -231,13 +237,23 @@ export default function CitizenApplicationDetail() {
             const uploaded = docMap[docType];
             const status = uploaded?.verification_status || null;
             const canReplace = app.status === 'pending' && status !== 'verified';
+            const selectedName = selectedFiles[docType];
             return (
               <div key={docType} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontSize: 20 }}>{docType === 'aadhaar' ? '🪪' : docType === 'bpl_card' ? '📄' : docType === 'death_certificate' ? '📜' : '♿'}</span>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{DOC_LABELS[docType]} <span style={{ color: 'var(--danger)', fontSize: 12 }}>*</span></div>
-                    {uploaded && <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>Uploaded</div>}
+                    {uploaded && (
+                      <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+                        Uploaded on {fmtDateTime(uploaded.uploaded_at)}
+                      </div>
+                    )}
+                    {!uploaded && selectedName && (
+                      <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+                        Selected: {selectedName}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -251,12 +267,16 @@ export default function CitizenApplicationDetail() {
                       <input
                         type="file" accept=".pdf,.jpg,.jpeg,.png"
                         ref={(el) => { fileRefs.current[docType] = el; }}
+                        onChange={(e) => {
+                          const pickedFile = e.target.files?.[0];
+                          setSelectedFiles((prev) => ({ ...prev, [docType]: pickedFile?.name || '' }));
+                        }}
                         style={{ fontSize: 12, width: 'auto' }}
                       />
                       <button
                         className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }}
                         onClick={() => handleUpload(docType)}
-                        disabled={uploading[docType]}
+                        disabled={uploading[docType] || !selectedName}
                       >
                         {uploading[docType] ? 'Uploading…' : uploaded ? '♻️ Replace' : '⬆️ Upload'}
                       </button>

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, useToast } from '../../app/providers';
 import { useTranslation } from 'react-i18next';
 import { getRoleHomePath } from '../../utils/guards';
-import './Auth.css';
+import './auth.css';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -53,11 +54,21 @@ export default function LoginPage() {
           </div>
           <div className="form-group">
             <label>{t('auth.password')}</label>
-            <input
-              type="password" required placeholder="••••••••"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-            />
+            <div className="password-input-wrap">
+              <input
+                type={showPassword ? 'text' : 'password'} required placeholder="••••••••"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </div>
           <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }} disabled={loading}>
             {loading ? t('auth.signing_in') : t('auth.login')}

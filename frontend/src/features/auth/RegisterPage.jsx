@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../../api/auth.api';
 import { useToast } from '../../app/providers';
 import { useTranslation } from 'react-i18next';
-import './Auth.css';
+import './auth.css';
 
 export default function RegisterPage() {
   const { addToast } = useToast();
